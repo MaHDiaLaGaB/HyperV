@@ -4,12 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.database import User, get_async_session
-from app.models import Item
-from app.schemas import ItemRead, ItemCreate
-from app.users import current_active_user
+from app.db.database import User, get_async_session
+from app.models.items import Item
+from app.schemas.items import ItemRead, ItemCreate
+from app.services.users import current_active_user
 
-router = APIRouter(tags=["item"])
+router = APIRouter()
 
 
 @router.get("/", response_model=list[ItemRead])

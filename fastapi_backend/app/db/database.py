@@ -6,8 +6,8 @@ from fastapi_users.db import SQLAlchemyUserDatabase
 from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from .config import settings
-from .models import Base, User
+from app.core.config import settings
+
 
 
 parsed_db_url = urlparse(settings.DATABASE_URL)
@@ -25,6 +25,8 @@ async_session_maker = async_sessionmaker(
     engine, expire_on_commit=settings.EXPIRE_ON_COMMIT
 )
 
+from app.db.base import Base
+from app.models.users import User
 
 async def create_db_and_tables():
     async with engine.begin() as conn:

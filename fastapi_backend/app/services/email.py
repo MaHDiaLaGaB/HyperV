@@ -2,11 +2,13 @@ from pathlib import Path
 import urllib.parse
 
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
-from .config import settings
-from .models import User
+from app.core.config import settings
+from app.models.users import User
 
 
 def get_email_config():
+
+    templates_dir = Path(__file__).parent.parent / settings.TEMPLATE_DIR
     conf = ConnectionConfig(
         MAIL_USERNAME=settings.MAIL_USERNAME,
         MAIL_PASSWORD=settings.MAIL_PASSWORD,
@@ -18,7 +20,7 @@ def get_email_config():
         MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
         USE_CREDENTIALS=settings.USE_CREDENTIALS,
         VALIDATE_CERTS=settings.VALIDATE_CERTS,
-        TEMPLATE_FOLDER=Path(__file__).parent / settings.TEMPLATE_DIR,
+        TEMPLATE_FOLDER=templates_dir
     )
     return conf
 

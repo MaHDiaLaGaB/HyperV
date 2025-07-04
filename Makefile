@@ -3,7 +3,11 @@
 # Variables
 BACKEND_DIR=fastapi_backend
 FRONTEND_DIR=nextjs-frontend
-DOCKER_COMPOSE=docker compose
+DOCKER_COMPOSE=docker-compose
+DB_SERVICE := db          # your Postgres service name in docker-compose.yml
+DB_USER := postgres    # the DB super-user
+DB_NAME := mydatabase  # the name of your database
+
 
 # Help
 .PHONY: help
@@ -72,3 +76,11 @@ docker-test-backend: ## Run tests for the backend
 
 docker-test-frontend: ## Run tests for the frontend
 	$(DOCKER_COMPOSE) run --rm frontend pnpm run test
+
+.PHONY: drop-all-db
+drop-all-db: ## Completely wipe all tables (public schema) and start fresh
+	@echo "🚨 Dropping public schema in service '$(DB_SERVICE)' (DB: $(DB_NAME))..."
+	@echo 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' \
+		| $(DOCKER_COMPOSE) exec -T $(DB_SERVICE) \
+			psql -U $(DB_USER) -d $(DB_NAME)
+	@echo "✅ All tables dropped. Public schema recreated."

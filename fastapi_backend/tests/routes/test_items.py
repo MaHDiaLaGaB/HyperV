@@ -1,7 +1,7 @@
 import pytest
 from fastapi import status
 from sqlalchemy import select, insert
-from app.models import Item
+from app.models.items import Item
 
 
 class TestItems:

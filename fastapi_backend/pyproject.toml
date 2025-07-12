@@ -12,6 +12,8 @@ dependencies = [
     "pydantic-settings>=2.5.2,<3",
     "fastapi-mail>=1.4.1,<2",
     "watchdog>=5.0.3",
+    "geoalchemy2>=0.17.1",
+    "shapely>=2.1.1",
 ]
 
 [dependency-groups]

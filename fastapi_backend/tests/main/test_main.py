@@ -2,7 +2,7 @@ import pytest
 from fastapi import status
 from fastapi_users.router import ErrorCode
 from sqlalchemy import select
-from app.models.users import User
+from fastapi_backend.app.models.users.users import User
 
 
 class TestPasswordValidation:

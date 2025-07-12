@@ -3,7 +3,7 @@ import urllib.parse
 
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from app.core.config import settings
-from app.models.users import User
+from app.models.users.users import User
 
 
 def get_email_config():

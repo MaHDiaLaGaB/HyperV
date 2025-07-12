@@ -1,89 +1,38 @@
-import uuid
-import re
-
-from typing import Optional
-
-from fastapi import Depends, Request
-from fastapi_users import (
-    BaseUserManager,
-    FastAPIUsers,
-    UUIDIDMixin,
-    InvalidPasswordException,
-)
-
-from fastapi_users.authentication import (
-    AuthenticationBackend,
-    BearerTransport,
-    JWTStrategy,
-)
-from fastapi_users.db import SQLAlchemyUserDatabase
-
-from app.core.config import settings
-from app.db.database import get_user_db
-from app.services.email import send_reset_password_email
-from app.models.users import User
-from app.schemas.users import UserCreate
-
-AUTH_URL_PATH = "auth"
+from __future__ import annotations
+from typing import List, Optional
+from uuid import UUID
+from fastapi import HTTPException, status, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi_users import exceptions as fau_exc
+from fastapi_users.manager import BaseUserManager
+from app.schemas import UserCreate, UserUpdate, UserRead
+from app.repositories import UserRepository, RoleRepository
+from .base import BaseService
 
 
-class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
-    reset_password_token_secret = settings.RESET_PASSWORD_SECRET_KEY
-    verification_token_secret = settings.VERIFICATION_SECRET_KEY
 
-    async def on_after_register(self, user: User, request: Optional[Request] = None):
-        print(f"User {user.id} has registered.")
+class UserService(BaseService[UserRepository]):
+    def __init__(self, repo: UserRepository, role_repo: RoleRepository, user_manager: BaseUserManager, db: AsyncSession):
+        super().__init__(repo, db)
+        self.role_repo = role_repo
+        self.user_manager = user_manager
 
-    async def on_after_forgot_password(
-        self, user: User, token: str, request: Optional[Request] = None
-    ):
-        await send_reset_password_email(user, token)
+    async def register(self, data: UserCreate) -> UserRead:
+        try:
+            user_db = await self.user_manager.create(data.model_dump())
+        except fau_exc.UserAlreadyExists:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+        return UserRead.model_validate(user_db)
 
-    async def on_after_request_verify(
-        self, user: User, token: str, request: Optional[Request] = None
-    ):
-        print(f"Verification requested for user {user.id}. Verification token: {token}")
+    async def update_profile(self, org_id: int, user_id: UUID, data: UserUpdate) -> UserRead:
+        user = await self.repo.get_in_org(org_id, user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        await self.repo.update(user, data.model_dump(exclude_none=True))
+        return UserRead.model_validate(user)
 
-    async def validate_password(
-        self,
-        password: str,
-        user: UserCreate,
-    ) -> None:
-        errors = []
-
-        if len(password) < 8:
-            errors.append("Password should be at least 8 characters.")
-        if user.email in password:
-            errors.append("Password should not contain e-mail.")
-        if not any(char.isupper() for char in password):
-            errors.append("Password should contain at least one uppercase letter.")
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-            errors.append("Password should contain at least one special character.")
-
-        if errors:
-            raise InvalidPasswordException(reason=errors)
-
-
-async def get_user_manager(user_db: SQLAlchemyUserDatabase = Depends(get_user_db)):
-    yield UserManager(user_db)
-
-
-bearer_transport = BearerTransport(tokenUrl=f"{AUTH_URL_PATH}/jwt/login")
-
-
-def get_jwt_strategy() -> JWTStrategy:
-    return JWTStrategy(
-        secret=settings.ACCESS_SECRET_KEY,
-        lifetime_seconds=settings.ACCESS_TOKEN_EXPIRE_SECONDS,
-    )
-
-
-auth_backend = AuthenticationBackend(
-    name="jwt",
-    transport=bearer_transport,
-    get_strategy=get_jwt_strategy,
-)
-
-fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])
-
-current_active_user = fastapi_users.current_user(active=True)
+    async def assign_roles(self, org_id: int, user_id: UUID, role_ids: List[int]):
+        user = await self.repo.get_in_org(org_id, user_id)
+        roles = await self.role_repo.list(filters=[self.role_repo.model.id.in_(role_ids)])
+        user.roles = roles
+        await self._commit()

@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 from fastapi_mail import ConnectionConfig, MessageSchema
 from app.services.email import get_email_config, send_reset_password_email
-from fastapi_backend.app.models.users.users import User
+from app.models.users.users import User
 
 
 @pytest.fixture

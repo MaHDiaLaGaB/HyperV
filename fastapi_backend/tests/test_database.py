@@ -9,7 +9,7 @@ from app.db.database import (
     get_user_db,
 )
 from app.db.base import Base
-from fastapi_backend.app.models.users.users import User
+from app.models.users.users import User
 
 
 @pytest.fixture

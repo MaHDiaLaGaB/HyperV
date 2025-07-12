@@ -7,7 +7,7 @@ import uuid
 
 from app.core.config import settings
 from app.db.base import Base
-from fastapi_backend.app.models.users.users import User
+from app.models.users.users import User
 
 
 from app.db.database import get_user_db, get_async_session

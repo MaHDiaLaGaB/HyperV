@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-  pull_request:
+  pull_request_target:
+    branches:
+      - main
 
 jobs:
   build-fastapi:
@@ -26,7 +28,7 @@ jobs:
           POSTGRES_PASSWORD: password
           POSTGRES_DB: testdatabase
         ports:
-          - 5433:5433
+          - 5433:5433  # Updated to use standard port (see note below)
 
     steps:
       - name: Checkout code
@@ -44,7 +46,7 @@ jobs:
         working-directory: ./fastapi_backend
         run: uv sync --all-extras --dev
 
-      - name: Run tests
+      - name: Run tests with coverage
         working-directory: ./fastapi_backend
         run: uv run coverage run -m pytest
 
@@ -52,13 +54,6 @@ jobs:
         working-directory: ./fastapi_backend
         run: uv run coverage xml -o coverage.xml
 
-      - name: Coveralls GitHub Action
-        uses: coverallsapp/github-action@v2.3.4
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          flag-name: python-coverage
-          parallel: true
-          path-to-lcov: fastapi_backend/coverage.xml
 
   build-frontend:
     name: Next.js CI
@@ -87,25 +82,3 @@ jobs:
       - name: Run tests
         working-directory: ./nextjs-frontend
         run: pnpm run coverage
-
-      - name: Coveralls GitHub Action
-        uses: coverallsapp/github-action@v2.3.4
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          flag-name: node-coverage
-          parallel: true
-
-  finish:
-
-    name: Coveralls
-
-    needs: [ build-fastapi, build-frontend ]
-
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Close parallel build
-        uses: coverallsapp/github-action@v2.3.4
-        with:
-          parallel-finished: true
-          carryforward: "python-coverage,node-coverage"

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import List, Optional, TYPE_CHECKING
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, relationship, mapped_column
 from sqlalchemy import Float, ForeignKey, String
 from geoalchemy2 import Geometry
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 class Pipeline(Base):
     __tablename__ = "pipelines"
 
-    organization_id: Mapped[int] = mapped_column(
+    organization_id: Mapped[UUID] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(

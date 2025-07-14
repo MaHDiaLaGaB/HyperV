@@ -1,17 +1,18 @@
 from __future__ import annotations
 from typing import Optional
+from uuid import UUID
 from pydantic import BaseModel, Field
 from .base import IDMixin, TimestampMixin
 from .enums import EventType
 
 
 class EventBase(BaseModel):
-    organization_id: int
+    organization_id: UUID
     event_type: EventType
     severity: Optional[int] = Field(None, ge=1, le=5)
     description: Optional[str] = None
-    pipeline_id: Optional[int] = None
-    asset_id: Optional[int] = None
+    pipeline_id: Optional[UUID] = None
+    asset_id: Optional[UUID] = None
 
 
 class EventCreate(EventBase):

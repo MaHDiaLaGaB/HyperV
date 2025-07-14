@@ -1,4 +1,5 @@
 from __future__ import annotations
+from sqlalchemy.dialects.postgresql import UUID
 from typing import Optional, TYPE_CHECKING
 from sqlalchemy.orm import Mapped, relationship, mapped_column
 from sqlalchemy import DateTime, ForeignKey
@@ -12,10 +13,10 @@ if TYPE_CHECKING:
 class Alert(Base):
     __tablename__ = "alerts"
 
-    organization_id: Mapped[int] = mapped_column(
+    organization_id: Mapped[UUID] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    event_id: Mapped[int] = mapped_column(
+    event_id: Mapped[UUID] = mapped_column(
         ForeignKey("events.id", ondelete="CASCADE"), nullable=False
     )
     sent_at: Mapped[dt.datetime] = mapped_column(
@@ -24,7 +25,7 @@ class Alert(Base):
     acknowledged_at: Mapped[Optional[dt.datetime]] = mapped_column(
         DateTime(timezone=True)
     )
-    recipient_user_id: Mapped[Optional[int]] = mapped_column(
+    recipient_user_id: Mapped[Optional[UUID]] = mapped_column(
         ForeignKey("user.id", ondelete="SET NULL")
     )
 

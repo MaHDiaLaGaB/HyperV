@@ -1,30 +1,43 @@
+# app/services/report.py
+
 from __future__ import annotations
 import tempfile
 from pathlib import Path
 from typing import List
+from uuid import UUID
 from fastapi import BackgroundTasks, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.report import (
-    ReportCreate,
-    ReportRead,
-    ReportUpdate,
-)
+from app.models.users.users import User
 from app.repositories import ReportRepository
+from app.schemas.report import ReportCreate, ReportRead, ReportUpdate
 from .base import BaseService
 
 
 class ReportService(BaseService[ReportRepository]):
     """
-    Service for managing Report entities and generating PDFs, scoped to an organization.
+    Service for managing Report entities and generating PDFs,
+    supporting both global superuser access and organization-scoped operations.
     """
 
     async def generate(
         self,
-        org_id: int,
+        current_user: User,
         data: ReportCreate,
         background: BackgroundTasks,
     ) -> ReportRead:
-        # Enforce org scope
+        """
+        Initiate report generation:
+        - Superusers may specify data.organization_id; others use their org.
+        - PDF rendering happens in background.
+        """
+        org_id = (
+            data.organization_id
+            if current_user.is_superuser
+            and getattr(data, "organization_id", None) is not None
+            else current_user.organization_id
+        )
+
         report_db = self.repo.model(
             organization_id=org_id,
             frequency=data.frequency,
@@ -33,49 +46,74 @@ class ReportService(BaseService[ReportRepository]):
             file_path=data.file_path,
             summary=data.summary,
         )
-        # Save DB row without commit; PDF will be rendered in background
         await self.repo.create(report_db, commit=False)
         background.add_task(self._render_pdf, report_db)
-        return ReportRead.model_validate(report_db)
+        validated: ReportRead = ReportRead.model_validate(report_db)
+        return validated
 
     async def list_reports(
         self,
-        org_id: int,
+        current_user: User,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> List[ReportRead]:
-        items = await self.repo.list_by_org(org_id)
-        return [ReportRead.model_validate(r) for r in items]
+        """
+        List reports:
+        - Superusers see all; org users see only theirs.
+        """
+        if current_user.is_superuser:
+            rows = await self.repo.list(limit=limit, offset=offset)  # type: ignore
+        else:
+            rows = await self.repo.list_by_org(
+                current_user.organization_id, limit=limit, offset=offset
+            )
+        return [ReportRead.model_validate(r) for r in rows]
 
     async def get_report(
         self,
-        org_id: int,
-        report_id: int,
+        current_user: User,
+        report_id: UUID,
     ) -> ReportRead:
-        report = await self.repo.get_in_org(org_id, report_id)
-        if not report:
+        """
+        Fetch a single report by ID, respecting superuser scope.
+        """
+        if current_user.is_superuser:
+            rpt = await self.repo.get(report_id)
+        else:
+            rpt = await self.repo.get_in_org(current_user.organization_id, report_id)
+        if not rpt:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Report not found in this organization",
+                status_code=status.HTTP_404_NOT_FOUND, detail="Report not found"
             )
-        return ReportRead.model_validate(report)
+        validated: ReportRead = ReportRead.model_validate(rpt)
+        return validated
 
     async def update_summary(
         self,
-        org_id: int,
-        report_id: int,
+        current_user: User,
+        report_id: UUID,
         data: ReportUpdate,
     ) -> ReportRead:
-        report = await self.repo.get_in_org(org_id, report_id)
-        if not report:
+        """
+        Update the summary text of a report.
+        """
+        if current_user.is_superuser:
+            rpt = await self.repo.get(report_id)
+        else:
+            rpt = await self.repo.get_in_org(current_user.organization_id, report_id)
+        if not rpt:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Report not found in this organization",
+                status_code=status.HTTP_404_NOT_FOUND, detail="Report not found"
             )
-        report.summary = data.summary
+        rpt.summary = data.summary
         await self._commit()
-        return ReportRead.model_validate(report)
+        validated: ReportRead = ReportRead.model_validate(rpt)
+        return validated
 
-    async def _render_pdf(self, report_db):
-        # TODO: integrate real rendering (wkhtmltopdf/GIS libs)
+    async def _render_pdf(self, report_db) -> None:
+        """
+        Background task to render PDF; stores the file path and commits.
+        """
         temp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
         Path(temp.name).write_text("Report placeholder PDF")
         report_db.file_path = temp.name

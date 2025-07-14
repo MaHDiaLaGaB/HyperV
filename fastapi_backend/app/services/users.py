@@ -1,3 +1,4 @@
+### app/services/user.py
 from __future__ import annotations
 from typing import List
 from uuid import UUID
@@ -6,14 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi_users import exceptions as fau_exc
 from fastapi_users.manager import BaseUserManager
 
-from app.schemas.users import UserCreate, UserUpdate, UserRead
+from app.models.users.users import User
 from app.repositories import UserRepository, RoleRepository
+from app.schemas.users import UserCreate, UserUpdate, UserRead
 from .base import BaseService
 
 
 class UserService(BaseService[UserRepository]):
     """
-    Service for managing User entities, scoped to an organization.
+    Service for managing User entities,
+    supporting both global superuser access and organization-scoped operations.
     """
 
     def __init__(
@@ -22,15 +25,17 @@ class UserService(BaseService[UserRepository]):
         role_repo: RoleRepository,
         user_manager: BaseUserManager,
         db: AsyncSession,
-    ):
+    ) -> None:
         super().__init__(repo, db)
         self.role_repo = role_repo
         self.user_manager = user_manager
 
-    async def register(self, data: UserCreate) -> UserRead:
+    async def register(
+        self,
+        data: UserCreate,
+    ) -> UserRead:
         """
-        Create a new user account.
-        Raises 409 if email already exists.
+        Create a new user account. Raises 409 if email exists.
         """
         try:
             user_db = await self.user_manager.create(data.model_dump())
@@ -43,97 +48,127 @@ class UserService(BaseService[UserRepository]):
 
     async def update_profile(
         self,
-        org_id: int,
+        current_user: User,
         user_id: UUID,
         data: UserUpdate,
     ) -> UserRead:
         """
-        Update a user's profile (name, active status, password).
-        Users may update themselves; superusers may update any.
+        Update profile:
+        - Superusers may update any user.
+        - Others may only update themselves within their org.
         """
-        user = await self.repo.get_in_org(org_id, user_id)
+        # Fetch target user
+        if current_user.is_superuser:
+            user = await self.repo.get(user_id)
+        else:
+            user = await self.repo.get_in_org(current_user.organization_id, user_id)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found in this organization",
+                detail="User not found",
             )
+
         updates = data.model_dump(exclude_none=True)
-        # Handle password separately to ensure hashing
+        # Handle password change
         if "password" in updates:
             await self.user_manager.update(user, updates)
-            # Remove password so we don't set it again below
             updates.pop("password")
-        # Update other fields via repo
+        # Apply other updates
         if updates:
             await self.repo.update(user, updates)
-        return UserRead.model_validate(user)
+
+        validated = UserRead.model_validate(user)
+        # Attach roles and permissions
+        validated.role_ids = [r.id for r in user.roles]
+        validated.permission_ids = sorted(
+            {p.id for r in user.roles for p in r.permissions}
+        )
+        return validated
 
     async def assign_roles(
         self,
-        org_id: int,
+        current_user: User,
         user_id: UUID,
-        role_ids: List[int],
+        role_ids: List[UUID],
     ) -> UserRead:
         """
-        Assign a set of roles to a user within the same organization.
-        Only superusers may call this.
+        Assign roles:
+        - Superusers may assign any user.
+        - Org users only assign within their org.
         """
-        user = await self.repo.get_in_org(org_id, user_id)
+        # Fetch user
+        if current_user.is_superuser:
+            user = await self.repo.get(user_id)
+        else:
+            user = await self.repo.get_in_org(current_user.organization_id, user_id)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found in this organization",
+                detail="User not found",
             )
-        # Fetch org-scoped roles
-        roles = await self.role_repo.list(
-            filters=[
-                self.role_repo.model.organization_id == org_id,
-                self.role_repo.model.id.in_(role_ids),
-            ]
-        )
+        # Fetch roles within scope
+        filters = [self.role_repo.model.id.in_(role_ids)]
+        if not current_user.is_superuser:
+            filters.insert(
+                0, self.role_repo.model.organization_id == current_user.organization_id
+            )
+        roles = await self.role_repo.list(filters=filters)
         if len(roles) != len(role_ids):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="One or more role IDs are invalid or out of scope",
+                detail="Invalid or out-of-scope role IDs",
             )
         user.roles = roles
         await self._commit()
-        return UserRead.model_validate(user)
+
+        validated = UserRead.model_validate(user)
+        validated.role_ids = [r.id for r in roles]
+        validated.permission_ids = sorted({p.id for r in roles for p in r.permissions})
+        return validated
 
     async def list_users(
         self,
-        org_id: int,
+        current_user: User,
         limit: int = 100,
         offset: int = 0,
     ) -> list[UserRead]:
         """
-        List users within the organization, with pagination.
+        List users:
+        - Superusers see all; org users see only their organization's.
         """
-        users = await self.repo.list(
-            filters=[self.repo.model.organization_id == org_id],
-            limit=limit,
-            offset=offset,
-        )
-        return [UserRead.model_validate(u) for u in users]
+        if current_user.is_superuser:
+            users = await self.repo.list(limit=limit, offset=offset)  # type: ignore
+        else:
+            users = await self.repo.list_by_org(
+                current_user.organization_id, limit=limit, offset=offset
+            )
+        result: list[UserRead] = []
+        for u in users:
+            ur = UserRead.model_validate(u)
+            ur.role_ids = [r.id for r in u.roles]
+            ur.permission_ids = sorted({p.id for r in u.roles for p in r.permissions})
+            result.append(ur)
+        return result
 
     async def get_user(
         self,
-        org_id: UUID,
+        current_user: User,
         user_id: UUID,
     ) -> UserRead:
         """
-        Get a single user by ID, scoped to organization.
+        Get a user by ID:
+        - Superusers may fetch any; org users only theirs.
         """
-        user = await self.repo.get_with_roles(org_id, user_id)
+        if current_user.is_superuser:
+            user = await self.repo.get_with_roles(user_id)
+        else:
+            user = await self.repo.get_with_roles(current_user.organization_id, user_id)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found in this organization",
+                detail="User not found",
             )
-        # Extract permission_ids from roles
-        user_read = UserRead.model_validate(user)
-        user_read.permission_ids = sorted(
-            {p.id for r in user.roles for p in r.permissions}
-        )
-        user_read.role_ids = [r.id for r in user.roles]
-        return user_read
+        ur = UserRead.model_validate(user)
+        ur.role_ids = [r.id for r in user.roles]
+        ur.permission_ids = sorted({p.id for r in user.roles for p in r.permissions})
+        return ur

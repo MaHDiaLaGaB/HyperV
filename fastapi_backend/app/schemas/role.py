@@ -1,12 +1,13 @@
 from __future__ import annotations
 from typing import List, Optional
+from uuid import UUID
 from pydantic import BaseModel, Field
 from .base import IDMixin, TimestampMixin
 
 
 class RoleBase(BaseModel):
     name: str
-    organization_id: int
+    organization_id: UUID
     permission_ids: List[int] = []
 
 
@@ -16,11 +17,11 @@ class RoleCreate(RoleBase):
 
 class RoleUpdate(BaseModel):
     name: Optional[str] = None
-    permission_ids: Optional[List[int]] = None
+    permission_ids: Optional[List[UUID]] = None
 
 
 class RolePermissionsUpdate(BaseModel):
-    permission_ids: List[int] = Field(
+    permission_ids: List[UUID] = Field(
         ...,
         min_items=1,
         description="List of permission IDs to assign to this role (replaces any existing assignments)",
@@ -31,7 +32,7 @@ class RolePermissionsUpdate(BaseModel):
 
 
 class RoleRead(IDMixin, TimestampMixin, RoleBase):
-    permission_ids: List[int]
+    permission_ids: List[UUID]
 
     class Config:
         from_attributes = True

@@ -1,8 +1,24 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi_users.manager import BaseUserManager
+from app.security.auth import get_user_manager
+from app.db.database import async_session_maker, engine
 from fastapi.middleware.cors import CORSMiddleware
 from .helpers.utils import simple_generate_unique_route_id
 from app.routes.endpoints import api_router as ap
 from app.core.config import settings
+from app.core.seeder import seed_superuser
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Pre-startup: seed
+    async with async_session_maker() as db:
+        user_manager: BaseUserManager = get_user_manager()  # your DI factory
+        await seed_superuser(db, user_manager)
+    yield
+    # —— SHUTDOWN ——  
+    # 1) Gracefully close any pending DB transactions
+    await engine.dispose()
 
 app = FastAPI(
     generate_unique_id_function=simple_generate_unique_route_id,

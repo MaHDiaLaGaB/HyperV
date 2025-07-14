@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Path, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
 
 from app.schemas.event import EventCreate, EventRead, EventUpdate
 from app.services.deps import get_event_service
@@ -23,7 +23,7 @@ async def ingest_event(
     current_user: User = Depends(current_active_user),
 ) -> EventRead:
     """Create a new event and trigger its initial alert."""
-    return await service.ingest(current_user.organization_id, data)
+    return await service.ingest(current_user, data)
 
 
 @router.get(
@@ -37,7 +37,7 @@ async def list_events(
 ) -> List[EventRead]:
     """Retrieve events with related asset and pipeline info."""
     # Note: pagination not wired into repo.list_with_related by default
-    events = await service.list_events(current_user.organization_id)
+    events = await service.list_events(current_user)
     return events[offset : offset + limit]
 
 
@@ -48,25 +48,25 @@ async def list_events(
     responses={404: {"description": "Event not found in organization"}},
 )
 async def get_event(
-    event_id: int = Path(..., description="ID of the event"),
+    event_id: UUID = Path(..., description="ID of the event"),
     service: EventService = Depends(get_event_service),
     current_user: User = Depends(current_active_user),
 ) -> EventRead:
     """Fetch a single event."""
-    return await service.get_event(current_user.organization_id, event_id)
+    return await service.get_event(current_user, event_id)
 
 
 @router.patch(
     "/{event_id}", response_model=EventRead, summary="Update an event's details"
 )
 async def update_event(
-    event_id: int,
+    event_id: UUID,
     data: EventUpdate,
     service: EventService = Depends(get_event_service),
     current_user: User = Depends(current_active_user),
 ) -> EventRead:
     """Modify event severity or description."""
-    return await service.update_event(current_user.organization_id, event_id, data)
+    return await service.update_event(current_user, event_id, data)
 
 
 @router.post(
@@ -80,4 +80,4 @@ async def acknowledge_event(
     current_user: User = Depends(current_active_user),
 ) -> None:
     """Mark all alerts related to this event as acknowledged."""
-    await service.acknowledge(current_user.organization_id, event_id)
+    await service.acknowledge(current_user, event_id)

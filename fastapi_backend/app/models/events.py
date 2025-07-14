@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import List, Optional, TYPE_CHECKING
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, relationship, mapped_column
 from sqlalchemy import Text, Integer, DateTime, ForeignKey, Enum as SQLEnum
 from geoalchemy2 import Geometry
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
 class Event(Base):
     __tablename__ = "events"
 
-    organization_id: Mapped[int] = mapped_column(
+    organization_id: Mapped[UUID] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
     )
     event_type: Mapped[EventType] = mapped_column(SQLEnum(EventType), nullable=False)
@@ -28,10 +29,10 @@ class Event(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
 
     location: Mapped[Optional[str]] = mapped_column(Geometry("POINT"))
-    pipeline_id: Mapped[Optional[int]] = mapped_column(
+    pipeline_id: Mapped[Optional[UUID]] = mapped_column(
         ForeignKey("pipelines.id", ondelete="SET NULL")
     )
-    asset_id: Mapped[Optional[int]] = mapped_column(
+    asset_id: Mapped[Optional[UUID]] = mapped_column(
         ForeignKey("assets.id", ondelete="SET NULL")
     )
 

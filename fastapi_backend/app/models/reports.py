@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, relationship, mapped_column
 from sqlalchemy import String, Text, DateTime, Enum as SQLEnum, ForeignKey
 from app.db.base import Base
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 class Report(Base):
     __tablename__ = "reports"
 
-    organization_id: Mapped[int] = mapped_column(
+    organization_id: Mapped[UUID] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
     )
     frequency: Mapped[ReportFrequency] = mapped_column(

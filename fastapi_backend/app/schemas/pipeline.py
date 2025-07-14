@@ -1,11 +1,12 @@
 from __future__ import annotations
 from typing import Optional
+from uuid import UUID
 from pydantic import BaseModel, Field
 from .base import IDMixin, TimestampMixin
 
 
 class PipelineBase(BaseModel):
-    organization_id: int
+    organization_id: UUID
     name: str
     length_km: float = Field(gt=0)
 

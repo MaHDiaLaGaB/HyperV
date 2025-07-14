@@ -681,7 +681,7 @@
           "Users"
         ],
         "summary": "Register a new user",
-        "description": "Public endpoint: register a new user.",
+        "description": "Public endpoint: register a new user account.",
         "operationId": "register_user",
         "requestBody": {
           "required": true,
@@ -720,8 +720,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "List users for organization",
-        "description": "List all users within the current user's organization.",
+        "summary": "List users",
+        "description": "List users within your organization, or all users if superuser.",
         "operationId": "list_users",
         "security": [
           {
@@ -787,7 +787,7 @@
           "Users"
         ],
         "summary": "Get a user by ID",
-        "description": "Fetch a single user with roles and permissions.",
+        "description": "Retrieve a single user. Superuser may fetch any; others only in their org.",
         "operationId": "get_user",
         "security": [
           {
@@ -820,7 +820,7 @@
             }
           },
           "404": {
-            "description": "User not found in organization"
+            "description": "User not found"
           },
           "422": {
             "description": "Validation Error",
@@ -839,7 +839,7 @@
           "Users"
         ],
         "summary": "Update a user's profile",
-        "description": "Users may update their own profile; superusers may update any user.",
+        "description": "Update profile: users may update themselves; superusers may update any.",
         "operationId": "update_user_profile",
         "security": [
           {
@@ -854,20 +854,60 @@
             "schema": {
               "type": "string",
               "format": "uuid",
+              "description": "UUID of the user",
               "title": "User Id"
+            },
+            "description": "UUID of the user"
+          },
+          {
+            "name": "full_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Full Name"
+            }
+          },
+          {
+            "name": "password",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Password"
+            }
+          },
+          {
+            "name": "is_active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Active"
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserUpdate"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -898,7 +938,7 @@
           "Users"
         ],
         "summary": "Assign roles to a user",
-        "description": "Superusers may assign roles to users within their organization.\nReplaces existing role assignments.",
+        "description": "Assign roles to a user: superusers only.",
         "operationId": "assign_user_roles",
         "security": [
           {
@@ -913,8 +953,10 @@
             "schema": {
               "type": "string",
               "format": "uuid",
+              "description": "UUID of the user",
               "title": "User Id"
-            }
+            },
+            "description": "UUID of the user"
           }
         ],
         "requestBody": {
@@ -922,7 +964,12 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UserRolesUpdate"
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "title": "Role Ids"
               }
             }
           }
@@ -951,10 +998,9 @@
         }
       }
     },
-    "/organizations/organizations/": {
+    "/organizations/": {
       "get": {
         "tags": [
-          "Organizations",
           "Organizations"
         ],
         "summary": "List all organizations",
@@ -984,7 +1030,6 @@
       },
       "post": {
         "tags": [
-          "Organizations",
           "Organizations"
         ],
         "summary": "Create a new organization",
@@ -1029,10 +1074,9 @@
         ]
       }
     },
-    "/organizations/organizations/{org_id}": {
+    "/organizations/{org_id}": {
       "get": {
         "tags": [
-          "Organizations",
           "Organizations"
         ],
         "summary": "Get organization by ID",
@@ -1049,7 +1093,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Org Id"
             }
           }
@@ -1082,7 +1127,6 @@
       },
       "put": {
         "tags": [
-          "Organizations",
           "Organizations"
         ],
         "summary": "Update organization",
@@ -1099,7 +1143,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Org Id"
             }
           }
@@ -1139,7 +1184,6 @@
       },
       "delete": {
         "tags": [
-          "Organizations",
           "Organizations"
         ],
         "summary": "Delete organization",
@@ -1156,7 +1200,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Org Id"
             }
           }
@@ -1178,43 +1223,59 @@
         }
       }
     },
-    "/roles/unacknowledged": {
-      "get": {
-        "tags": [
-          "Roles"
-        ],
-        "summary": "List all unacknowledged alerts for organization",
-        "operationId": "list_unacknowledged_alerts",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AlertRead"
-                  },
-                  "type": "array",
-                  "title": "Response Roles-List Unacknowledged Alerts"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ]
-      }
-    },
-    "/roles/{alert_id}/acknowledge": {
+    "/roles/": {
       "post": {
         "tags": [
           "Roles"
         ],
-        "summary": "Acknowledge an alert",
-        "operationId": "acknowledge_alert",
+        "summary": "Create a new role",
+        "description": "Create a role within your organization.\nSuperusers may set `organization_id` in the payload to target any tenant;\nregular users will have roles created in their own org.",
+        "operationId": "create_role",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "List roles",
+        "description": "List roles for your organization.\nSuperusers must supply `?org_id=...` to list that tenant's roles.",
+        "operationId": "list_roles",
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -1222,18 +1283,183 @@
         ],
         "parameters": [
           {
-            "name": "alert_id",
-            "in": "path",
-            "required": true,
+            "name": "org_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Organization ID to list roles for (required for superusers)",
+              "title": "Org Id"
+            },
+            "description": "Organization ID to list roles for (required for superusers)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
             "schema": {
               "type": "integer",
-              "title": "Alert Id"
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
             }
           }
         ],
         "responses": {
-          "204": {
-            "description": "Successful Response"
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleRead"
+                  },
+                  "title": "Response Roles-List Roles"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roles/{role_id}": {
+      "get": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Get a role by ID",
+        "description": "Fetch a single role by its ID.\nSuperusers may fetch any role; org users only their own.",
+        "operationId": "get_role",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "UUID of the role",
+              "title": "Role Id"
+            },
+            "description": "UUID of the role"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleRead"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Role not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roles/{role_id}/permissions": {
+      "patch": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Assign permissions to a role",
+        "description": "Replace the set of permissions on a role.\nSuperusers may update any role; org users only their own.",
+        "operationId": "assign_role_permissions",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "UUID of the role",
+              "title": "Role Id"
+            },
+            "description": "UUID of the role"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "minItems": 1,
+                "title": "Permission Ids"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleRead"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -1343,7 +1569,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Permission Id"
             }
           }
@@ -1381,6 +1608,7 @@
           "Assets"
         ],
         "summary": "Upload a new asset",
+        "description": "Upload a binary asset with metadata and WKT footprint.",
         "operationId": "upload_asset",
         "security": [
           {
@@ -1424,7 +1652,8 @@
         "tags": [
           "Assets"
         ],
-        "summary": "List all assets for organization",
+        "summary": "List assets",
+        "description": "Retrieve assets scoped to your organization or all if superuser.",
         "operationId": "list_assets",
         "security": [
           {
@@ -1439,9 +1668,11 @@
             "schema": {
               "type": "integer",
               "minimum": 1,
+              "description": "Max items to return",
               "default": 100,
               "title": "Limit"
-            }
+            },
+            "description": "Max items to return"
           },
           {
             "name": "offset",
@@ -1450,9 +1681,11 @@
             "schema": {
               "type": "integer",
               "minimum": 0,
+              "description": "Offset for pagination",
               "default": 0,
               "title": "Offset"
-            }
+            },
+            "description": "Offset for pagination"
           }
         ],
         "responses": {
@@ -1489,6 +1722,7 @@
           "Assets"
         ],
         "summary": "Get an asset by ID",
+        "description": "Fetch a single asset by ID, respecting superuser scope.",
         "operationId": "get_asset",
         "security": [
           {
@@ -1501,8 +1735,9 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 1,
+              "type": "string",
+              "format": "uuid",
+              "ge": 1,
               "title": "Asset Id"
             }
           }
@@ -1534,14 +1769,12 @@
         }
       }
     },
-    "/reports/reports/": {
+    "/reports/": {
       "post": {
         "tags": [
-          "Reports",
           "Reports"
         ],
         "summary": "Generate a new report",
-        "description": "Initiate report generation; PDF rendering runs in background.",
         "operationId": "generate_report",
         "security": [
           {
@@ -1583,11 +1816,9 @@
       },
       "get": {
         "tags": [
-          "Reports",
           "Reports"
         ],
-        "summary": "List all reports for organization",
-        "description": "Retrieve reports scoped to the current user's organization.",
+        "summary": "List reports",
         "operationId": "list_reports",
         "security": [
           {
@@ -1647,14 +1878,12 @@
         }
       }
     },
-    "/reports/reports/{report_id}": {
+    "/reports/{report_id}": {
       "get": {
         "tags": [
-          "Reports",
           "Reports"
         ],
         "summary": "Get a report by ID",
-        "description": "Fetch a single report record.",
         "operationId": "get_report",
         "security": [
           {
@@ -1667,11 +1896,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "description": "ID of the report",
+              "type": "string",
+              "format": "uuid",
               "title": "Report Id"
-            },
-            "description": "ID of the report"
+            }
           }
         ],
         "responses": {
@@ -1686,7 +1914,7 @@
             }
           },
           "404": {
-            "description": "Report not found in organization"
+            "description": "Report not found"
           },
           "422": {
             "description": "Validation Error",
@@ -1702,11 +1930,9 @@
       },
       "patch": {
         "tags": [
-          "Reports",
           "Reports"
         ],
         "summary": "Update report summary",
-        "description": "Modify the summary text of an existing report.",
         "operationId": "update_report_summary",
         "security": [
           {
@@ -1719,7 +1945,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Report Id"
             }
           }
@@ -1758,14 +1985,12 @@
         }
       }
     },
-    "/reports/reports/{report_id}/download": {
+    "/reports/{report_id}/download": {
       "get": {
         "tags": [
-          "Reports",
           "Reports"
         ],
-        "summary": "Download the generated PDF for a report",
-        "description": "Serve the PDF file for a completed report.",
+        "summary": "Download report PDF",
         "operationId": "download_report",
         "security": [
           {
@@ -1778,16 +2003,18 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "description": "ID of the report",
+              "type": "string",
+              "format": "uuid",
               "title": "Report Id"
-            },
-            "description": "ID of the report"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "404": {
+            "description": "Report not found"
           },
           "422": {
             "description": "Validation Error",
@@ -1936,7 +2163,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "description": "ID of the event",
               "title": "Event Id"
             },
@@ -1987,7 +2215,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Event Id"
             }
           }
@@ -2067,14 +2296,13 @@
         }
       }
     },
-    "/pipelines/pipelines/": {
+    "/pipelines/": {
       "post": {
         "tags": [
-          "Pipelines",
           "Pipelines"
         ],
         "summary": "Create a new pipeline",
-        "description": "Register a new pipeline within the current organization.",
+        "description": "Register a new pipeline. Superusers may specify `organization_id` in payload.",
         "operationId": "create_pipeline",
         "security": [
           {
@@ -2116,11 +2344,10 @@
       },
       "get": {
         "tags": [
-          "Pipelines",
           "Pipelines"
         ],
-        "summary": "List all pipelines for organization",
-        "description": "Retrieve pipelines scoped to the current user's organization.",
+        "summary": "List pipelines",
+        "description": "Retrieve pipelines scoped to your organization, or all if superuser.",
         "operationId": "list_pipelines",
         "security": [
           {
@@ -2134,7 +2361,6 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "maximum": 1000,
               "minimum": 1,
               "default": 100,
               "title": "Limit"
@@ -2180,10 +2406,9 @@
         }
       }
     },
-    "/pipelines/pipelines/{pipeline_id}": {
+    "/pipelines/{pipeline_id}": {
       "get": {
         "tags": [
-          "Pipelines",
           "Pipelines"
         ],
         "summary": "Get a pipeline by ID",
@@ -2200,7 +2425,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "description": "ID of the pipeline",
               "title": "Pipeline Id"
             },
@@ -2219,7 +2445,7 @@
             }
           },
           "404": {
-            "description": "Pipeline not found in organization"
+            "description": "Pipeline not found"
           },
           "422": {
             "description": "Validation Error",
@@ -2235,11 +2461,10 @@
       },
       "patch": {
         "tags": [
-          "Pipelines",
           "Pipelines"
         ],
         "summary": "Update pipeline details",
-        "description": "Update name, length, or geometry of a pipeline.",
+        "description": "Modify name, length, or geometry of a pipeline.",
         "operationId": "update_pipeline",
         "security": [
           {
@@ -2252,7 +2477,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Pipeline Id"
             }
           }
@@ -2292,11 +2518,10 @@
       },
       "delete": {
         "tags": [
-          "Pipelines",
           "Pipelines"
         ],
         "summary": "Delete a pipeline",
-        "description": "Remove a pipeline and its related events.",
+        "description": "Remove a pipeline.",
         "operationId": "delete_pipeline",
         "security": [
           {
@@ -2309,7 +2534,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
+              "type": "string",
+              "format": "uuid",
               "title": "Pipeline Id"
             }
           }
@@ -2334,74 +2560,11 @@
   },
   "components": {
     "schemas": {
-      "AlertRead": {
-        "properties": {
-          "organization_id": {
-            "type": "integer",
-            "title": "Organization Id"
-          },
-          "event_id": {
-            "type": "integer",
-            "title": "Event Id"
-          },
-          "recipient_user_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Recipient User Id"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "sent_at": {
-            "type": "string",
-            "title": "Sent At"
-          },
-          "acknowledged_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Acknowledged At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "organization_id",
-          "event_id",
-          "created_at",
-          "updated_at",
-          "id",
-          "sent_at",
-          "acknowledged_at"
-        ],
-        "title": "AlertRead"
-      },
       "AssetRead": {
         "properties": {
           "organization_id": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Organization Id"
           },
           "asset_type": {
@@ -2503,7 +2666,20 @@
       "Body_Assets-upload_asset": {
         "properties": {
           "asset_type": {
-            "$ref": "#/components/schemas/AssetType"
+            "$ref": "#/components/schemas/AssetType",
+            "description": "Asset type enum value"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Id",
+            "description": "Target organization id (superuser only)"
           },
           "captured_at": {
             "anyOf": [
@@ -2515,7 +2691,8 @@
                 "type": "null"
               }
             ],
-            "title": "Captured At"
+            "title": "Captured At",
+            "description": "ISO8601 timestamp"
           },
           "footprint_wkt": {
             "anyOf": [
@@ -2526,7 +2703,8 @@
                 "type": "null"
               }
             ],
-            "title": "Footprint Wkt"
+            "title": "Footprint Wkt",
+            "description": "WKT POLYGON string"
           },
           "metadata": {
             "anyOf": [
@@ -2537,12 +2715,14 @@
                 "type": "null"
               }
             ],
-            "title": "Metadata"
+            "title": "Metadata",
+            "description": "JSON-encoded metadata"
           },
           "file": {
             "type": "string",
             "format": "binary",
-            "title": "File"
+            "title": "File",
+            "description": "Binary asset file"
           }
         },
         "type": "object",
@@ -2648,7 +2828,8 @@
       "EventCreate": {
         "properties": {
           "organization_id": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Organization Id"
           },
           "event_type": {
@@ -2681,7 +2862,8 @@
           "pipeline_id": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string",
+                "format": "uuid"
               },
               {
                 "type": "null"
@@ -2692,7 +2874,8 @@
           "asset_id": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string",
+                "format": "uuid"
               },
               {
                 "type": "null"
@@ -2722,7 +2905,8 @@
       "EventRead": {
         "properties": {
           "organization_id": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Organization Id"
           },
           "event_type": {
@@ -2755,7 +2939,8 @@
           "pipeline_id": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string",
+                "format": "uuid"
               },
               {
                 "type": "null"
@@ -2766,7 +2951,8 @@
           "asset_id": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string",
+                "format": "uuid"
               },
               {
                 "type": "null"
@@ -3050,7 +3236,8 @@
       "PipelineCreate": {
         "properties": {
           "organization_id": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Organization Id"
           },
           "name": {
@@ -3085,7 +3272,8 @@
       "PipelineRead": {
         "properties": {
           "organization_id": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Organization Id"
           },
           "name": {
@@ -3178,7 +3366,8 @@
       "ReportCreate": {
         "properties": {
           "organization_id": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Organization Id"
           },
           "frequency": {
@@ -3230,7 +3419,8 @@
       "ReportRead": {
         "properties": {
           "organization_id": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Organization Id"
           },
           "frequency": {
@@ -3310,6 +3500,79 @@
         "type": "object",
         "title": "ReportUpdate"
       },
+      "RoleCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "permission_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Permission Ids",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "organization_id"
+        ],
+        "title": "RoleCreate"
+      },
+      "RoleRead": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "permission_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Permission Ids"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "organization_id",
+          "permission_ids",
+          "created_at",
+          "updated_at",
+          "id"
+        ],
+        "title": "RoleRead"
+      },
       "UserCreate": {
         "properties": {
           "email": {
@@ -3322,7 +3585,8 @@
             "title": "Full Name"
           },
           "organization_id": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Organization Id"
           },
           "is_superuser": {
@@ -3361,7 +3625,8 @@
             "title": "Full Name"
           },
           "organization_id": {
-            "type": "integer",
+            "type": "string",
+            "format": "uuid",
             "title": "Organization Id"
           },
           "is_superuser": {
@@ -3391,7 +3656,8 @@
           },
           "role_ids": {
             "items": {
-              "type": "integer"
+              "type": "string",
+              "format": "uuid"
             },
             "type": "array",
             "title": "Role Ids",
@@ -3399,7 +3665,8 @@
           },
           "permission_ids": {
             "items": {
-              "type": "integer"
+              "type": "string",
+              "format": "uuid"
             },
             "type": "array",
             "title": "Permission Ids",
@@ -3416,22 +3683,6 @@
           "id"
         ],
         "title": "UserRead"
-      },
-      "UserRolesUpdate": {
-        "properties": {
-          "role_ids": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "title": "Role Ids"
-          }
-        },
-        "type": "object",
-        "required": [
-          "role_ids"
-        ],
-        "title": "UserRolesUpdate"
       },
       "UserUpdate": {
         "properties": {

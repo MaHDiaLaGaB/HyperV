@@ -1,4 +1,5 @@
 from __future__ import annotations
+from sqlalchemy.dialects.postgresql import UUID
 from typing import List, Dict, Optional, TYPE_CHECKING
 from sqlalchemy.orm import Mapped, relationship, mapped_column
 from sqlalchemy import String, DateTime, JSON, ForeignKey, Enum as SQLEnum
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
 class Asset(Base):
     __tablename__ = "assets"
 
-    organization_id: Mapped[int] = mapped_column(
+    organization_id: Mapped[UUID] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
     )
     asset_type: Mapped[AssetType] = mapped_column(SQLEnum(AssetType), nullable=False)

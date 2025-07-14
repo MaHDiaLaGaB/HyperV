@@ -1,14 +1,23 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, List
+from typing import List, Optional
+from sqlalchemy.dialects.postgresql import UUID
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
 from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.models.permissions.roles import Role
 
+"""
+
+"""
+
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))
+    organization_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("organizations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     full_name: Mapped[str] = mapped_column(String(255))
     organization = relationship("Organization", back_populates="users")
 

@@ -1,4 +1,5 @@
 from typing import List
+from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,7 +32,7 @@ async def create_permission(
 ) -> PermissionRead:
     """Create a permission within the current user's organization."""
     return await service.create_permission(
-        current_user.organization_id,
+        current_user,
         data,
     )
 
@@ -47,7 +48,7 @@ async def list_permissions(
 ) -> List[PermissionRead]:
     """List all permissions scoped to the current user's organization."""
     return await service.list_permissions(
-        current_user.organization_id,
+        current_user,
     )
 
 
@@ -58,12 +59,12 @@ async def list_permissions(
     responses={404: {"description": "Permission not found in organization"}},
 )
 async def get_permission(
-    permission_id: int,
+    permission_id: UUID,
     service: PermissionService = Depends(get_permission_service),
     current_user: User = Depends(current_active_user),
 ) -> PermissionRead:
     """Fetch a single permission, validating organization scope."""
     return await service.get_permission(
-        current_user.organization_id,
+        current_user,
         permission_id,
     )

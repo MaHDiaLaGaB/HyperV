@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import List, Optional
+from uuid import UUID
 from pydantic import EmailStr, BaseModel
 from uuid import UUID
 from .base import IDMixin, TimestampMixin
@@ -8,7 +9,7 @@ from .base import IDMixin, TimestampMixin
 class UserBase(BaseModel):
     email: EmailStr
     full_name: str
-    organization_id: int
+    organization_id: UUID
     is_superuser: bool = False
     is_active: bool = True
 
@@ -24,13 +25,12 @@ class UserUpdate(BaseModel):
 
 
 class UserRolesUpdate(BaseModel):
-    role_ids: List[int]
+    role_ids: List[UUID]
 
 
 class UserRead(IDMixin, TimestampMixin, UserBase):
-    id: UUID  # FastAPI‑Users UUID primary key
-    role_ids: List[int] = []
-    permission_ids: List[int] = []
+    role_ids: List[UUID] = []
+    permission_ids: List[UUID] = []
 
     class Config:
         from_attributes = True

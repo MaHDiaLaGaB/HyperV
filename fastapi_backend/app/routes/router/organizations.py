@@ -1,4 +1,5 @@
 from typing import List
+from uuid import UUID
 from fastapi import APIRouter, Depends, status, HTTPException
 from app.schemas.organization import (
     OrganizationCreate,
@@ -11,8 +12,6 @@ from app.security.auth import current_active_user
 from app.models.users.users import User
 
 router = APIRouter(
-    prefix="/organizations",
-    tags=["Organizations"],
     dependencies=[Depends(current_active_user)],
 )
 
@@ -33,7 +32,7 @@ async def create_organization(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges"
         )
-    return await service.create_org(data)
+    return await service.create_org(current_user=current_user, data=data)
 
 
 @router.get(
@@ -48,7 +47,7 @@ async def list_organizations(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges"
         )
-    return await service.list_orgs()
+    return await service.list_orgs(current_user=current_user)
 
 
 @router.get(
@@ -58,7 +57,7 @@ async def list_organizations(
     responses={404: {"description": "Organization not found"}},
 )
 async def get_organization(
-    org_id: int,
+    org_id: UUID,
     service: OrganizationService = Depends(get_organization_service),
     current_user: User = Depends(current_active_user),
 ) -> OrganizationRead:
@@ -67,12 +66,12 @@ async def get_organization(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges"
         )
-    return await service.get_org(org_id)
+    return await service.get_org(current_user, org_id)
 
 
 @router.put("/{org_id}", response_model=OrganizationRead, summary="Update organization")
 async def update_organization(
-    org_id: int,
+    org_id: UUID,
     data: OrganizationUpdate,
     service: OrganizationService = Depends(get_organization_service),
     current_user: User = Depends(current_active_user),
@@ -82,14 +81,14 @@ async def update_organization(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges"
         )
-    return await service.update_org(org_id, data)
+    return await service.update_org(current_user, org_id, data)
 
 
 @router.delete(
     "/{org_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete organization"
 )
 async def delete_organization(
-    org_id: int,
+    org_id: UUID,
     service: OrganizationService = Depends(get_organization_service),
     current_user: User = Depends(current_active_user),
 ) -> None:
@@ -98,4 +97,4 @@ async def delete_organization(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges"
         )
-    await service.delete_org(org_id)
+    await service.delete_org(current_user, org_id)

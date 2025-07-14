@@ -1,4 +1,5 @@
 from __future__ import annotations
+from uuid import UUID
 from typing import Any, Generic, Iterable, List, Optional, TypeVar, Dict, Type
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +19,7 @@ class AsyncRepository(Generic[ModelT]):
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def get(self, obj_id: Any) -> Optional[ModelT]:
+    async def get(self, obj_id: UUID) -> Optional[ModelT]:
         """Fetch a single record by primary key."""
         stmt = select(self.model).where(self.model.id == obj_id)
         result = await self.db.scalar(stmt)

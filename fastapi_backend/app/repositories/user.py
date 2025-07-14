@@ -5,11 +5,13 @@ from sqlalchemy.orm import selectinload
 from app.models import User
 from .base import AsyncRepository
 from .mixins import OrgFilterMixin
+from uuid import UUID
+
 
 class UserRepository(OrgFilterMixin, AsyncRepository[User]):
     model = User
 
-    async def get_with_roles(self, org_id: int, user_id: int) -> Optional[User]:
+    async def get_with_roles(self, org_id: UUID, user_id: UUID) -> Optional[User]:
         stmt = (
             select(User)
             .where(User.id == user_id, User.organization_id == org_id)

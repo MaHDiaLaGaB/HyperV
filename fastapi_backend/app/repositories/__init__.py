@@ -1,4 +1,5 @@
 """Public exports for dependency injection in FastAPI routers/services."""
+
 from .organization import OrganizationRepository
 from .permission import PermissionRepository
 from .role import RoleRepository

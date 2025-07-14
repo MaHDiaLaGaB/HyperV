@@ -6,6 +6,7 @@ from app.models import Event
 from .base import AsyncRepository
 from .mixins import OrgFilterMixin
 
+
 class EventRepository(OrgFilterMixin, AsyncRepository[Event]):
     model = Event
 

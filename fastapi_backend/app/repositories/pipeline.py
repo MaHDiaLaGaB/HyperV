@@ -3,5 +3,6 @@ from app.models import Pipeline
 from .base import AsyncRepository
 from .mixins import OrgFilterMixin
 
+
 class PipelineRepository(OrgFilterMixin, AsyncRepository[Pipeline]):
     model = Pipeline

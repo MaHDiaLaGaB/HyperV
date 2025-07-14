@@ -6,6 +6,7 @@ from app.models import Role
 from .base import AsyncRepository, AsyncSession
 from .mixins import OrgFilterMixin
 
+
 class RoleRepository(OrgFilterMixin, AsyncRepository[Role]):
     model = Role
 
@@ -13,9 +14,7 @@ class RoleRepository(OrgFilterMixin, AsyncRepository[Role]):
         stmt = (
             select(Role)
             .where(Role.organization_id == org_id)
-            .options(
-                selectinload(Role.permissions)
-            )
+            .options(selectinload(Role.permissions))
         )
         res = await self.db.scalars(stmt)
         return list(res)

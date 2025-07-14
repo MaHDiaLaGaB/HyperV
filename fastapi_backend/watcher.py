@@ -11,10 +11,7 @@ from threading import Timer
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("watcher.log")
-    ]
+    handlers=[logging.StreamHandler(), logging.FileHandler("watcher.log")],
 )
 logger = logging.getLogger("watcher")
 
@@ -30,6 +27,7 @@ WATCHER_REGEX_PATTERN = re.compile(
 )
 APP_PATH = "app"
 DEBOUNCE_TIME = 1.5  # seconds
+
 
 class MyHandler(FileSystemEventHandler):
     def __init__(self):
@@ -49,9 +47,7 @@ class MyHandler(FileSystemEventHandler):
                         if self.debounce_timer:
                             self.debounce_timer.cancel()
                         self.debounce_timer = Timer(
-                            DEBOUNCE_TIME, 
-                            self.execute_command, 
-                            [event.src_path]
+                            DEBOUNCE_TIME, self.execute_command, [event.src_path]
                         )
                         self.debounce_timer.start()
                         logger.info(f"Detected modification in {rel_path}")
@@ -81,7 +77,7 @@ class MyHandler(FileSystemEventHandler):
                 logger.info("Mypy output:\n" + result.stdout)
             if result.stderr:
                 logger.error("Mypy errors:\n" + result.stderr)
-            
+
             if result.returncode:
                 logger.warning(
                     "Type errors detected! Check the mypy output for details."
@@ -123,11 +119,11 @@ if __name__ == "__main__":
     logger.info("Starting watchdog service...")
     logger.info(f"Watching directory: {APP_PATH}")
     logger.info(f"Watching patterns: {WATCHER_REGEX_PATTERN.pattern}")
-    
+
     observer = Observer()
     observer.schedule(MyHandler(), APP_PATH, recursive=True)
     observer.start()
-    
+
     try:
         while True:
             time.sleep(1)

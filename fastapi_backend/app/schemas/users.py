@@ -23,6 +23,10 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+class UserRolesUpdate(BaseModel):
+    role_ids: List[int]
+
+
 class UserRead(IDMixin, TimestampMixin, UserBase):
     id: UUID  # FastAPI‑Users UUID primary key
     role_ids: List[int] = []
@@ -30,4 +34,3 @@ class UserRead(IDMixin, TimestampMixin, UserBase):
 
     class Config:
         from_attributes = True
-        

@@ -29,4 +29,3 @@ class ReportFrequency(StrEnum):
     WEEKLY = "weekly"
     MONTHLY = "monthly"
     QUARTERLY = "quarterly"
-    

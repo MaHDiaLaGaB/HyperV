@@ -1,4 +1,5 @@
 """Convenience re‑exports for FastAPI routers."""
+
 from .organization import *  # noqa: F403,F401
 from .permission import *  # noqa: F403,F401
 from .role import *  # noqa: F403,F401

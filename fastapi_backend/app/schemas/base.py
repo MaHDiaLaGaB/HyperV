@@ -1,10 +1,11 @@
 from __future__ import annotations
 import datetime as dt
 from pydantic import BaseModel, field_validator
+from uuid import UUID
 
 
 class IDMixin(BaseModel):
-    id: int
+    id: UUID
 
     class Config:
         from_attributes = True  # Pydantic v2: ORM mode

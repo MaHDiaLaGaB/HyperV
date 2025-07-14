@@ -13,13 +13,21 @@ if TYPE_CHECKING:
 class Pipeline(Base):
     __tablename__ = "pipelines"
 
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    name: Mapped[str] = mapped_column(String, nullable=False) # store name in JSON or String as needed
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(
+        String, nullable=False
+    )  # store name in JSON or String as needed
     length_km: Mapped[float] = mapped_column(Float, nullable=False)
     geom: Mapped[Optional[str]] = mapped_column(Geometry("LINESTRING"))
 
-    organization: Mapped["Organization"] = relationship(back_populates="pipelines")  # noqa: F821
-    events: Mapped[List["Event"]] = relationship(back_populates="pipeline", cascade="all, delete-orphan")  # noqa: F821
+    organization: Mapped["Organization"] = relationship(
+        back_populates="pipelines"
+    )  # noqa: F821
+    events: Mapped[List["Event"]] = relationship(
+        back_populates="pipeline", cascade="all, delete-orphan"
+    )  # noqa: F821
 
 
 """

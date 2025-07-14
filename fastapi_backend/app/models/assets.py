@@ -11,15 +11,20 @@ if TYPE_CHECKING:
     from app.models.users.organization import Organization  # noqa: F401
     from app.models.events import Event  # noqa: F401
 
+
 class Asset(Base):
     __tablename__ = "assets"
 
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     asset_type: Mapped[AssetType] = mapped_column(SQLEnum(AssetType), nullable=False)
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     captured_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True))
     footprint: Mapped[Optional[str]] = mapped_column(Geometry("POLYGON"))
     asset_metadata: Mapped[Optional[Dict]] = mapped_column(JSON)
 
-    organization: Mapped["Organization"] = relationship(back_populates="assets")  # noqa: F821
+    organization: Mapped["Organization"] = relationship(
+        back_populates="assets"
+    )  # noqa: F821
     events: Mapped[List["Event"]] = relationship(back_populates="asset")  # noqa: F821

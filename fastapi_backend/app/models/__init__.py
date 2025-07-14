@@ -12,10 +12,11 @@ from .permissions.roles import Role
 from .users.user_roles import UserRole
 from .pipelines import Pipeline
 from .reports import Report
+
 # …add other models here…
 
 __all__ = [
-    "User", 
+    "User",
     "Event",
     "Alert",
     "Asset",
@@ -26,5 +27,5 @@ __all__ = [
     "Report",
     "RolePermission",
     "Role",
-    "Permission"
-    ]
+    "Permission",
+]

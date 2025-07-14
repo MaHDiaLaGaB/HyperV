@@ -8,10 +8,11 @@ if TYPE_CHECKING:
     from app.models.permissions.roles import Role  # noqa: F401
 
 
-
 class Permission(Base):
     __tablename__ = "permissions"
-    code: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    code: Mapped[str] = mapped_column(
+        String(128), unique=True, nullable=False, index=True
+    )
     description: Mapped[Optional[str]] = mapped_column(String(255))
 
     roles: Mapped[List["Role"]] = relationship(

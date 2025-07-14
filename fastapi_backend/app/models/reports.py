@@ -13,12 +13,24 @@ if TYPE_CHECKING:
 class Report(Base):
     __tablename__ = "reports"
 
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    frequency: Mapped[ReportFrequency] = mapped_column(SQLEnum(ReportFrequency), nullable=False)
-    period_start: Mapped[dt.date] = mapped_column(DateTime(timezone=False), nullable=False)
-    period_end: Mapped[dt.date] = mapped_column(DateTime(timezone=False), nullable=False)
-    generated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.utcnow, nullable=False)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    frequency: Mapped[ReportFrequency] = mapped_column(
+        SQLEnum(ReportFrequency), nullable=False
+    )
+    period_start: Mapped[dt.date] = mapped_column(
+        DateTime(timezone=False), nullable=False
+    )
+    period_end: Mapped[dt.date] = mapped_column(
+        DateTime(timezone=False), nullable=False
+    )
+    generated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), default=dt.datetime.utcnow, nullable=False
+    )
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     summary: Mapped[Optional[str]] = mapped_column(Text)
 
-    organization: Mapped["Organization"] = relationship(back_populates="reports")  # noqa: F821
+    organization: Mapped["Organization"] = relationship(
+        back_populates="reports"
+    )  # noqa: F821

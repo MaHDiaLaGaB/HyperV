@@ -16,9 +16,8 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
         secondary="user_roles", back_populates="users"
     )
 
-    __table_args__ = (
-        UniqueConstraint("email", name="uq_user_email"),
-    )
+    __table_args__ = (UniqueConstraint("email", name="uq_user_email"),)
+
 
 Role.users = relationship(
     "User", secondary="user_roles", back_populates="roles", cascade="all"

@@ -5,6 +5,7 @@ from app.repositories.base import AsyncRepository
 
 RepoT = TypeVar("RepoT", bound=AsyncRepository)
 
+
 class BaseService(Generic[RepoT]):
     """Common helper for wrapping repository calls inside explicit transactions."""
 
@@ -12,6 +13,6 @@ class BaseService(Generic[RepoT]):
         self.repo = repo
         self.db = db
 
-    async def _commit(self):
+    async def _commit(self) -> None:
         """Explicit commit helper; may be overridden to add audit."""
         await self.db.commit()

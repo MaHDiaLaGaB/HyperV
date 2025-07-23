@@ -4,7 +4,7 @@ services:
       context: fastapi_backend
     environment:
       - OPENAPI_OUTPUT_FILE=./shared-data/openapi.json
-      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/mydatabase
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/hypervizion
       - TEST_DATABASE_URL=postgresql+asyncpg://postgres:password@db:5433/testdatabase
       - MAIL_SERVER=mailhog
     ports:
@@ -13,16 +13,16 @@ services:
       - my_network
     volumes:
       - ./fastapi_backend:/app
-      - fastapi-venv:/app/.venv
       - ./local-shared-data:/app/shared-data
     depends_on:
       - db
+
   db:
     image: postgres:17
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: mydatabase
+      POSTGRES_DB: hypervizion
     ports:
       - "5432:5432"
     networks:
@@ -56,6 +56,7 @@ services:
       - ./nextjs-frontend:/app
       - nextjs-node-modules:/app/node_modules
       - ./local-shared-data:/app/shared-data
+
   mailhog:
     image: mailhog/mailhog
     ports:
@@ -63,6 +64,19 @@ services:
       - "8025:8025" # Web UI
     networks:
       - my_network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    networks:
+      - my_network
+    depends_on:
+      - db
 
 volumes:
   postgres_data:

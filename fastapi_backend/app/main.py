@@ -8,13 +8,16 @@ from .helpers.utils import simple_generate_unique_route_id
 from app.routes.endpoints import api_router as ap
 from app.core.config import settings
 from app.core.seeder import seed_superuser
+from app.db.init import create_db_and_tables
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # start create the db
+    await create_db_and_tables()
+
     # Pre-startup: seed
-    async with async_session_maker() as db:
-        user_manager: BaseUserManager = get_user_manager()  # your DI factory
-        await seed_superuser(db, user_manager)
+    async with async_session_maker() as db:# your DI factory
+        await seed_superuser(db)
     yield
     # —— SHUTDOWN ——  
     # 1) Gracefully close any pending DB transactions
@@ -23,6 +26,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     generate_unique_id_function=simple_generate_unique_route_id,
     openapi_url=settings.OPENAPI_URL,
+    lifespan=lifespan,
 )
 
 # Middleware for CORS configuration

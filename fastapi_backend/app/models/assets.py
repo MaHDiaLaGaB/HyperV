@@ -3,7 +3,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from typing import List, Dict, Optional, TYPE_CHECKING
 from sqlalchemy.orm import Mapped, relationship, mapped_column
 from sqlalchemy import String, DateTime, JSON, ForeignKey, Enum as SQLEnum
-from geoalchemy2 import Geometry
 from app.db.base import Base
 from app.schemas.enums import AssetType
 import datetime as dt
@@ -22,7 +21,7 @@ class Asset(Base):
     asset_type: Mapped[AssetType] = mapped_column(SQLEnum(AssetType), nullable=False)
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     captured_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True))
-    footprint: Mapped[Optional[str]] = mapped_column(Geometry("POLYGON"))
+    footprint: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)
     asset_metadata: Mapped[Optional[Dict]] = mapped_column(JSON)
 
     organization: Mapped["Organization"] = relationship(

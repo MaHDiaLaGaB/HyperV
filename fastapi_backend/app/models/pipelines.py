@@ -2,8 +2,7 @@ from __future__ import annotations
 from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, relationship, mapped_column
-from sqlalchemy import Float, ForeignKey, String
-from geoalchemy2 import Geometry
+from sqlalchemy import Float, ForeignKey, String, JSON
 from app.db.base import Base
 from app.models.events import Event  # noqa: F401
 
@@ -21,7 +20,7 @@ class Pipeline(Base):
         String, nullable=False
     )  # store name in JSON or String as needed
     length_km: Mapped[float] = mapped_column(Float, nullable=False)
-    geom: Mapped[Optional[str]] = mapped_column(Geometry("LINESTRING"))
+    geom_geojson: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)
 
     organization: Mapped["Organization"] = relationship(
         back_populates="pipelines"

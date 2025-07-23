@@ -2,8 +2,7 @@ from __future__ import annotations
 from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, relationship, mapped_column
-from sqlalchemy import Text, Integer, DateTime, ForeignKey, Enum as SQLEnum
-from geoalchemy2 import Geometry
+from sqlalchemy import Text, Integer, DateTime, ForeignKey, Enum as SQLEnum, JSON
 from app.db.base import Base
 import datetime as dt
 from app.schemas.enums import EventType
@@ -28,7 +27,7 @@ class Event(Base):
     severity: Mapped[Optional[int]] = mapped_column(Integer)
     description: Mapped[Optional[str]] = mapped_column(Text)
 
-    location: Mapped[Optional[str]] = mapped_column(Geometry("POINT"))
+    location_geojeson: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)
     pipeline_id: Mapped[Optional[UUID]] = mapped_column(
         ForeignKey("pipelines.id", ondelete="SET NULL")
     )

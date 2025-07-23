@@ -7,10 +7,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.models.permissions.roles import Role
 
-"""
-
-"""
-
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
     organization_id: Mapped[Optional[UUID]] = mapped_column(

@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 class Organization(Base):
     __tablename__ = "organizations"
-
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     slug: Mapped[str] = mapped_column(
         String(64), nullable=False, unique=True, index=True

@@ -6,6 +6,7 @@ class ClientType(StrEnum):
     DEFENCE = "defence"
     INTERIOR = "interior"
     ENVIRONMENT = "environment"
+    SYSTEM = "system"
     OTHER = "other"
 
 

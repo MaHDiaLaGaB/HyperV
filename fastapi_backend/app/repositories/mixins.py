@@ -11,8 +11,8 @@ class OrgEntity(Protocol):
     Protocol for ORM models that must have 'organization_id' and 'id' attributes.
     """
 
-    organization_id: Any
-    id: Any
+    organization_id: UUID
+    id: UUID
 
 
 ModelT = TypeVar("ModelT", bound=OrgEntity)

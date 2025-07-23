@@ -32,7 +32,7 @@ router = APIRouter(dependencies=[Depends(current_active_user)])
 )
 async def upload_asset(
     asset_type: AssetType = Form(..., description="Asset type enum value"),
-    organization_id: Optional[int] = Form(
+    organization_id: Optional[UUID] = Form(
         None, description="Target organization id (superuser only)"
     ),
     captured_at: Optional[datetime] = Form(None, description="ISO8601 timestamp"),

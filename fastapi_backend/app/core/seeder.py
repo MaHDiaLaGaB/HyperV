@@ -1,60 +1,92 @@
 # app/core/seeder.py
 from uuid import uuid4
+import logging
 
 from fastapi_users.manager import BaseUserManager
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi_users.password import PasswordHelper
+from pwdlib import PasswordHash
+from pwdlib.hashers.argon2 import Argon2Hasher
+
+# use the same hasher(s) your app is configured with
+password_helper = PasswordHelper(PasswordHash((Argon2Hasher(),)))
+
 from app.core.config import settings
+from app.models import Organization, Role
 from app.models.users.users import User
-from app.repositories import UserRepository, OrganizationRepository, RoleRepository, PermissionRepository
-from app.schemas.organization import OrganizationCreate
-from app.schemas.role import RoleCreate
+from app.repositories import (
+    OrganizationRepository,
+    RoleRepository,
+    UserRepository,
+)
+from app.schemas.enums import ClientType
 from app.schemas.users import UserCreate
-from app.services.organization import OrganizationService
-from app.services.role import RoleService
 
-async def seed_superuser(db: AsyncSession, user_manager: BaseUserManager) -> None:
+logging.basicConfig(level=logging.INFO)
+
+
+async def seed_superuser(db: AsyncSession) -> None:
     """
-    Ensure a global superuser exists. Idempotent.
+    Ensure a global superuser exists, using only repositories.
     """
-    org_repo = OrganizationRepository(db)
     # 1) Create or fetch the 'system' org
-    system = await org_repo.get_by(filters=[org_repo.model.slug == "__system__"])  # type: ignore
-    if not system:
-        org_svc = OrganizationService(org_repo, db)
-        system = await org_svc.create_org(OrganizationCreate(
-            name="System",
-            slug="__system__"
-        ))
+    org_repo = OrganizationRepository(db)
+    if await org_repo.exists(slug="__system__"):
+        [system] = await org_repo.list(
+            filters=[Organization.slug == "__system__"],
+            limit=1,
+        )
+    else:
+        system = await org_repo.create(
+            Organization(
+                name="System",
+                slug="__system__",
+                client_type=ClientType.SYSTEM,
+            )
+        )
+    logging.info(f"Using organization: {system.name} ({system.slug} {system.id})")
 
-    # 2) Ensure superadmin role
+    # 2) Create or fetch the 'superadmin' role
     role_repo = RoleRepository(db)
-    super_role = await role_repo.get_by(filters=[
-        role_repo.model.organization_id == system.id,  # type: ignore
-        role_repo.model.name == "superadmin"           # type: ignore
-    ])
-    if not super_role:
-        perm_repo = PermissionRepository(db)
-        role_svc = RoleService(role_repo, perm_repo, db)
-        # pass a dummy superuser so create_role uses override
-        dummy = User(id=uuid4(), email=settings.SUPERUSER_EMAIL, is_superuser=True, organization_id=system.id)  # type: ignore
-        super_role = await role_svc.create_role(dummy, RoleCreate(
-            name="superadmin",
-            permission_ids=[]
-        ))
+    if await role_repo.exists(organization_id=system.id, name="superadmin"):
+        [super_role] = await role_repo.list(
+            filters=[
+                Role.organization_id == system.id,
+                Role.name == "superadmin",
+            ],
+            limit=1,
+        )
+    else:
+        super_role = await role_repo.create(
+            Role(
+                name="superadmin",
+                organization_id=system.id,
+            )
+        )
 
-    # 3) Create superuser if missing
     user_repo = UserRepository(db)
-    exists = await user_repo.exists(email=settings.SUPERUSER_EMAIL)
-    if not exists:
-        user_db = await user_manager.create(UserCreate(
+    if not await user_repo.exists(email=settings.SUPERUSER_EMAIL):
+        # 1) hash the password exactly the same way FastAPI‑Users would
+        hashed = password_helper.hash(settings.SUPERUSER_PASSWORD)
+
+        # 2) construct the ORM object
+        new_user = User(
+            id=uuid4(),
             email=settings.SUPERUSER_EMAIL,
-            password=settings.SUPERUSER_PASSWORD,
+            hashed_password=hashed,
             full_name=settings.SUPERUSER_FULL_NAME,
             organization_id=system.id,
             is_superuser=True,
-        ).model_dump())
-        # Attach role
-        user = await user_repo.get(user_db.id)
-        user.roles = [super_role]
+            is_active=True,      # usually you want default-active and default-verified
+            is_verified=True,
+        )
+
+        # create but don't commit yet
+        created = await user_repo.create(new_user, commit=False)
+
+        # now assign roles in-memory (no lazy load)
+        created.roles = [super_role]
+
+        # finally, write everything to the DB
         await db.commit()

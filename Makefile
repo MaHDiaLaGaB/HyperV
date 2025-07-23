@@ -4,9 +4,9 @@
 BACKEND_DIR=fastapi_backend
 FRONTEND_DIR=nextjs-frontend
 DOCKER_COMPOSE=docker-compose
-DB_SERVICE := db          # your Postgres service name in docker-compose.yml
+DB_SERVICE := db      # your Postgres service name in docker-compose.yml
 DB_USER := postgres    # the DB super-user
-DB_NAME := mydatabase  # the name of your database
+DB_NAME := hypervizion  # the name of your database
 
 
 # Help
@@ -84,3 +84,17 @@ drop-all-db: ## Completely wipe all tables (public schema) and start fresh
 		| $(DOCKER_COMPOSE) exec -T $(DB_SERVICE) \
 			psql -U $(DB_USER) -d $(DB_NAME)
 	@echo "✅ All tables dropped. Public schema recreated."
+
+
+# Create database locally if it doesn't exist
+.PHONY: create-db
+create-db:
+	@echo "🔧 Creating database if not exists..."
+	@createdb --echo --host=localhost --username=$(DB_USER) $(DB_NAME) || true
+	@echo "✅ Database '$(DB_NAME)' is ready."
+
+
+# Full local DB init: create + PostGIS
+.PHONY: setup-local-db
+setup-local-db: create-db init-postgis-local
+	@echo "✅ Local database setup complete."

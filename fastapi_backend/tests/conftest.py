@@ -80,6 +80,7 @@ async def authenticated_user(test_client, db_session):
     user_data = {
         "id": uuid.uuid4(),
         "email": "test@example.com",
+        "full_name": "Test User",
         "hashed_password": PasswordHelper().hash("TestPassword123#"),
         "is_active": True,
         "is_superuser": False,

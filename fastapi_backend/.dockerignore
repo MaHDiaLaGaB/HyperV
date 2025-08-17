@@ -1,0 +1,11 @@
+# Python virtual environment
+.venv
+# Dependency files not needed at runtime
+
+# Bytecode caches
+__pycache__/
+*.pyc
+# Git metadata
+.git
+# OS files
+*.swp

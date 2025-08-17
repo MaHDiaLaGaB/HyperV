@@ -1,33 +1,18 @@
-FROM python:3.12-bookworm
+# syntax=docker/dockerfile:1
+FROM python:3.12-slim-bookworm
 
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
-# The uv installer requires curl (and certificates) to download the release archive
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+# 1) Copy only dependencies, install globally
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Download the latest uv installer
-ADD https://astral.sh/uv/install.sh /uv-installer.sh
-
-# Run the uv installer then remove it
-RUN sh /uv-installer.sh && rm /uv-installer.sh
-
-# Ensure the installed binary is on the `PATH`
-ENV PATH="/root/.local/bin/:$PATH"
-
-# Copy dependency files first to leverage Docker caching
-COPY pyproject.toml uv.lock ./
-
-# Install dependencies using uv
-RUN uv sync --frozen
-
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Copy the rest of the application code
+# 2) Copy application code
 COPY . .
 
-# Expose the application port
+# 3) Expose port and run
 EXPOSE 8000
 
-# Command to run the application
-CMD ["./start.sh"]
+# COPY start.sh .
+ENTRYPOINT ["./start.sh"]

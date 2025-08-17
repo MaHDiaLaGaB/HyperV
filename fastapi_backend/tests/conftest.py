@@ -7,12 +7,11 @@ import uuid
 
 from app.core.config import settings
 from app.db.base import Base
-from app.models.users import User
+from app.models.users.users import User
 
-
-from app.db.database import get_user_db, get_async_session
+from app.db.deps import get_async_session, get_user_db
 from app.main import app
-from app.services.users import get_jwt_strategy
+from app.security.auth import get_jwt_strategy
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -81,6 +80,7 @@ async def authenticated_user(test_client, db_session):
     user_data = {
         "id": uuid.uuid4(),
         "email": "test@example.com",
+        "full_name": "Test User",
         "hashed_password": PasswordHelper().hash("TestPassword123#"),
         "is_active": True,
         "is_superuser": False,

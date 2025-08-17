@@ -19,24 +19,25 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_SECONDS: int = 3600
 
-    # Email
-    MAIL_USERNAME: str | None = None
-    MAIL_PASSWORD: str | None = None
-    MAIL_FROM: str | None = None
-    MAIL_SERVER: str | None = None
-    MAIL_PORT: int | None = None
-    MAIL_FROM_NAME: str = "FastAPI template"
-    MAIL_STARTTLS: bool = True
-    MAIL_SSL_TLS: bool = False
-    USE_CREDENTIALS: bool = True
-    VALIDATE_CERTS: bool = True
-    TEMPLATE_DIR: str = "email_templates"
+    #SuperUser
+    SUPERUSER_EMAIL: str
+    SUPERUSER_PASSWORD: str
+    SUPERUSER_FULL_NAME: str = "Super Admin"
+
+    SUPERADMINS: set[str] = set()
+
+    # Clerk
+    CLERK_ISSUER: str
+    CLERK_EXPECTED_AUD: str
+    CLERK_PERMITTED_AZP: str
+    CLERK_SECRET_KEY: str
+    CLERK_JWKS_URL: str
 
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"
 
     # CORS
-    CORS_ORIGINS: Set[str]
+    # CORS_ORIGINS: Set[str] = ["*"]
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

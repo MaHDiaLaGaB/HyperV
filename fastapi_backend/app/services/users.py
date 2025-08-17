@@ -1,89 +1,181 @@
-import uuid
-import re
+# app/services/user.py
 
-from typing import Optional
+from __future__ import annotations
+from typing import List
+from uuid import UUID
 
-from fastapi import Depends, Request
-from fastapi_users import (
-    BaseUserManager,
-    FastAPIUsers,
-    UUIDIDMixin,
-    InvalidPasswordException,
-)
+from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastapi_users.authentication import (
-    AuthenticationBackend,
-    BearerTransport,
-    JWTStrategy,
-)
-from fastapi_users.db import SQLAlchemyUserDatabase
-
-from app.core.config import settings
-from app.db.database import get_user_db
-from app.services.email import send_reset_password_email
-from app.models.users import User
-from app.schemas.users import UserCreate
-
-AUTH_URL_PATH = "auth"
+from app.repositories import UserRepository, RoleRepository
+from app.schemas.users import UserUpdate, UserRead
+from .base import BaseService
+from app.security.clerk import CurrentUser
+from app.services.context import ctx_from_current_user
 
 
-class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
-    reset_password_token_secret = settings.RESET_PASSWORD_SECRET_KEY
-    verification_token_secret = settings.VERIFICATION_SECRET_KEY
+class UserService(BaseService[UserRepository]):
+    """
+    Service for managing User entities with Clerk-based identity.
+    - Superadmin (global) can act across tenants.
+    - Regular users are scoped to their active organization.
+    """
 
-    async def on_after_register(self, user: User, request: Optional[Request] = None):
-        print(f"User {user.id} has registered.")
-
-    async def on_after_forgot_password(
-        self, user: User, token: str, request: Optional[Request] = None
-    ):
-        await send_reset_password_email(user, token)
-
-    async def on_after_request_verify(
-        self, user: User, token: str, request: Optional[Request] = None
-    ):
-        print(f"Verification requested for user {user.id}. Verification token: {token}")
-
-    async def validate_password(
+    def __init__(
         self,
-        password: str,
-        user: UserCreate,
+        repo: UserRepository,
+        role_repo: RoleRepository,
+        db: AsyncSession,
     ) -> None:
-        errors = []
+        super().__init__(repo, db)
+        self.role_repo = role_repo
 
-        if len(password) < 8:
-            errors.append("Password should be at least 8 characters.")
-        if user.email in password:
-            errors.append("Password should not contain e-mail.")
-        if not any(char.isupper() for char in password):
-            errors.append("Password should contain at least one uppercase letter.")
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-            errors.append("Password should contain at least one special character.")
+    # If you still need a way to create local user rows (no passwords),
+    # implement a separate 'provision_user' method. Clerk owns registration.
 
-        if errors:
-            raise InvalidPasswordException(reason=errors)
+    async def update_profile(
+        self,
+        current: CurrentUser,
+        user_id: UUID,
+        data: UserUpdate,
+    ) -> UserRead:
+        """
+        Update profile:
+        - Superadmin may update any user.
+        - Others may only update themselves within their org.
+        """
+        ctx = ctx_from_current_user(current)
 
+        # Guard: non-superadmin can only update themselves
+        if not ctx.is_superadmin and str(ctx.user_id) != str(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient privileges to update this profile",
+            )
 
-async def get_user_manager(user_db: SQLAlchemyUserDatabase = Depends(get_user_db)):
-    yield UserManager(user_db)
+        # Fetch target user within scope
+        if ctx.is_superadmin:
+            user = await self.repo.get(user_id)
+        else:
+            user = await self.repo.get_in_org(ctx.organization_id, user_id)
 
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
 
-bearer_transport = BearerTransport(tokenUrl=f"{AUTH_URL_PATH}/jwt/login")
+        updates = data.model_dump(exclude_none=True)
 
+        # Password changes are managed by Clerk, not here
+        if "password" in updates:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Use Clerk to change password",
+            )
 
-def get_jwt_strategy() -> JWTStrategy:
-    return JWTStrategy(
-        secret=settings.ACCESS_SECRET_KEY,
-        lifetime_seconds=settings.ACCESS_TOKEN_EXPIRE_SECONDS,
-    )
+        # Apply other updates
+        if updates:
+            await self.repo.update(user, updates)
 
+        ur = UserRead.model_validate(user)
+        ur.role_ids = [r.id for r in user.roles]
+        ur.permission_ids = sorted({p.id for r in user.roles for p in r.permissions})
+        return ur
 
-auth_backend = AuthenticationBackend(
-    name="jwt",
-    transport=bearer_transport,
-    get_strategy=get_jwt_strategy,
-)
+    async def assign_roles(
+        self,
+        current: CurrentUser,
+        user_id: UUID,
+        role_ids: List[UUID],
+    ) -> UserRead:
+        """
+        Assign roles:
+        - Superadmin may assign roles to any user.
+        - Org-scoped users may only assign roles within their org.
+        """
+        ctx = ctx_from_current_user(current)
 
-fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])
+        # Fetch user within scope
+        if ctx.is_superadmin:
+            user = await self.repo.get(user_id)
+        else:
+            user = await self.repo.get_in_org(ctx.organization_id, user_id)
 
-current_active_user = fastapi_users.current_user(active=True)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        # Build filters to fetch roles by ids (and org if not superadmin)
+        filters = [self.role_repo.model.id.in_(role_ids)]
+        if not ctx.is_superadmin:
+            filters.insert(0, self.role_repo.model.organization_id == ctx.organization_id)
+
+        roles = await self.role_repo.list(filters=filters)
+        if len(roles) != len(role_ids):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or out-of-scope role IDs",
+            )
+
+        user.roles = roles
+        await self._commit()
+
+        ur = UserRead.model_validate(user)
+        ur.role_ids = [r.id for r in roles]
+        ur.permission_ids = sorted({p.id for r in roles for p in r.permissions})
+        return ur
+
+    async def list_users(
+        self,
+        current: CurrentUser,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[UserRead]:
+        """
+        List users:
+        - Superadmin sees all; org users see only their organization's.
+        """
+        ctx = ctx_from_current_user(current)
+
+        if ctx.is_superadmin:
+            users = await self.repo.list(limit=limit, offset=offset)  # type: ignore
+        else:
+            users = await self.repo.list_by_org(ctx.organization_id, limit=limit, offset=offset)
+
+        result: list[UserRead] = []
+        for u in users:
+            ur = UserRead.model_validate(u)
+            ur.role_ids = [r.id for r in u.roles]
+            ur.permission_ids = sorted({p.id for r in u.roles for p in r.permissions})
+            result.append(ur)
+        return result
+
+    async def get_user(
+        self,
+        current: CurrentUser,
+        user_id: UUID,
+    ) -> UserRead:
+        """
+        Get a user by ID:
+        - Superadmin may fetch any; org users only theirs.
+        """
+        ctx = ctx_from_current_user(current)
+
+        if ctx.is_superadmin:
+            user = await self.repo.get_with_roles(user_id)
+        else:
+            user = await self.repo.get_with_roles(ctx.organization_id, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        ur = UserRead.model_validate(user)
+        ur.role_ids = [r.id for r in user.roles]
+        ur.permission_ids = sorted({p.id for r in user.roles for p in r.permissions})
+        return ur

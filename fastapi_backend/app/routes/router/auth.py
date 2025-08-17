@@ -1,42 +1,15 @@
 from fastapi import APIRouter
-from app.schemas.users import UserCreate, UserRead, UserUpdate
-from app.services.users import auth_backend, fastapi_users, AUTH_URL_PATH
-
+from fastapi import APIRouter, Depends
+from app.security.clerk import get_current_user, role_required, CurrentUser
 
 router = APIRouter()
 
+# Simple "who am I" endpoint (replaces /auth/jwt/*, /auth/register, etc.)
+@router.get("/auth/me", tags=["auth"])
+async def me(current: CurrentUser = Depends(get_current_user)):
+    return current
 
-# JWT auth endpoints  (e.g. /auth/jwt/login, /auth/jwt/logout)
-router.include_router(
-    fastapi_users.get_auth_router(auth_backend),
-    prefix=f"/{AUTH_URL_PATH}/jwt",
-    tags=["auth"],
-)
-
-# Registration (e.g. POST /auth/register)
-router.include_router(
-    fastapi_users.get_register_router(UserRead, UserCreate),
-    prefix=f"/{AUTH_URL_PATH}",
-    tags=["auth"],
-)
-
-# Reset password (e.g. POST /auth/reset-password)
-router.include_router(
-    fastapi_users.get_reset_password_router(),
-    prefix=f"/{AUTH_URL_PATH}",
-    tags=["auth"],
-)
-
-# Verify user (e.g. GET /auth/verify?token=…)
-router.include_router(
-    fastapi_users.get_verify_router(UserRead),
-    prefix=f"/{AUTH_URL_PATH}",
-    tags=["auth"],
-)
-
-# “/users” → list users, get by id, update, delete
-router.include_router(
-    fastapi_users.get_users_router(UserRead, UserUpdate),
-    prefix="/users",
-    tags=["users"],
-)
+# Example: protect by org role (or superadmin via env SUPERADMINS)
+@router.get("/auth/check-admin", tags=["auth"])
+async def check_admin(current: CurrentUser = Depends(role_required("admin"))):
+    return {"ok": True, "user_id": current["id"], "org_role": current["org_role"]}

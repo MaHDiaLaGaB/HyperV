@@ -4,9 +4,10 @@
 BACKEND_DIR=fastapi_backend
 FRONTEND_DIR=nextjs-frontend
 DOCKER_COMPOSE=docker-compose
-DB_SERVICE := db          # your Postgres service name in docker-compose.yml
+DB_SERVICE := db      # your Postgres service name in docker-compose.yml
 DB_USER := postgres    # the DB super-user
-DB_NAME := mydatabase  # the name of your database
+DB_NAME := hypervizion  # the name of your database
+SERVICE := backend
 
 
 # Help
@@ -71,8 +72,24 @@ docker-migrate-db: ## Run database migrations using Alembic
 docker-db-schema: ## Generate a new migration schema. Usage: make docker-db-schema migration_name="add users"
 	$(DOCKER_COMPOSE) run --rm backend alembic revision --autogenerate -m "$(migration_name)"
 
-docker-test-backend: ## Run tests for the backend
-	$(DOCKER_COMPOSE) run --rm backend pytest
+# docker-test-backend: ## Run tests for the backend
+# 	$(DOCKER_COMPOSE) run --rm backend pytest
+
+# Run tests in a throwaway container, bypassing the entrypoint
+docker-test-backend:
+	$(DOCKER_COMPOSE) run --rm --no-deps --entrypoint "" $(SERVICE) sh -lc "pytest -q"
+
+# With coverage (example)
+docker-test-backend-cov:
+	$(DOCKER_COMPOSE) run --rm --no-deps --entrypoint "" $(SERVICE) sh -lc "pytest --maxfail=1 --disable-warnings --cov=app --cov-report=term-missing -q"
+
+# Open a shell in a throwaway container (useful for ad-hoc commands)
+docker-backend-sh:
+	$(DOCKER_COMPOSE) run --rm --entrypoint "" $(SERVICE) sh
+
+# If you want to run tests *inside the already running* container instead:
+docker-test-backend-exec:
+	$(DOCKER_COMPOSE) exec $(SERVICE) sh -lc "pytest -q"
 
 docker-test-frontend: ## Run tests for the frontend
 	$(DOCKER_COMPOSE) run --rm frontend pnpm run test
@@ -84,3 +101,17 @@ drop-all-db: ## Completely wipe all tables (public schema) and start fresh
 		| $(DOCKER_COMPOSE) exec -T $(DB_SERVICE) \
 			psql -U $(DB_USER) -d $(DB_NAME)
 	@echo "✅ All tables dropped. Public schema recreated."
+
+
+# Create database locally if it doesn't exist
+.PHONY: create-db
+create-db:
+	@echo "🔧 Creating database if not exists..."
+	@createdb --echo --host=localhost --username=$(DB_USER) $(DB_NAME) || true
+	@echo "✅ Database '$(DB_NAME)' is ready."
+
+
+# Full local DB init: create + PostGIS
+.PHONY: setup-local-db
+setup-local-db: create-db init-postgis-local
+	@echo "✅ Local database setup complete."

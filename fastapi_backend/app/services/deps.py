@@ -26,7 +26,7 @@ from app.repositories import (
     AlertRepository,
     ReportRepository,
 )
-from app.security.auth import get_user_manager
+from app.security.clerk import get_current_user
 from app.services.organization import OrganizationService
 from app.services.role import RoleService
 from app.services.users import UserService
@@ -57,7 +57,7 @@ async def get_role_service(
 async def get_user_service(
     user_repo: UserRepository = Depends(get_user_repo),
     role_repo: RoleRepository = Depends(get_role_repo),
-    user_manager=Depends(get_user_manager),
+    user_manager=Depends(get_current_user),
     db: AsyncSession = Depends(get_async_session),
 ) -> UserService:
     """Injectable UserService"""

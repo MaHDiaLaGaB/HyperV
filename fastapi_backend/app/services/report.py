@@ -6,9 +6,8 @@ from pathlib import Path
 from typing import List
 from uuid import UUID
 from fastapi import BackgroundTasks, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.users.users import User
+from app.security.clerk import CurrentUser
 from app.repositories import ReportRepository
 from app.schemas.report import ReportCreate, ReportRead, ReportUpdate
 from .base import BaseService
@@ -22,7 +21,7 @@ class ReportService(BaseService[ReportRepository]):
 
     async def generate(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         data: ReportCreate,
         background: BackgroundTasks,
     ) -> ReportRead:
@@ -33,9 +32,9 @@ class ReportService(BaseService[ReportRepository]):
         """
         org_id = (
             data.organization_id
-            if current_user.is_superuser
+            if current_user["is_superadmin"]
             and getattr(data, "organization_id", None) is not None
-            else current_user.organization_id
+            else current_user["organization_id"]
         )
 
         report_db = self.repo.model(
@@ -53,7 +52,7 @@ class ReportService(BaseService[ReportRepository]):
 
     async def list_reports(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         limit: int | None = None,
         offset: int | None = None,
     ) -> List[ReportRead]:
@@ -61,26 +60,26 @@ class ReportService(BaseService[ReportRepository]):
         List reports:
         - Superusers see all; org users see only theirs.
         """
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             rows = await self.repo.list(limit=limit, offset=offset)  # type: ignore
         else:
             rows = await self.repo.list_by_org(
-                current_user.organization_id, limit=limit, offset=offset
+                current_user["organization_id"], limit=limit, offset=offset
             )
         return [ReportRead.model_validate(r) for r in rows]
 
     async def get_report(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         report_id: UUID,
     ) -> ReportRead:
         """
         Fetch a single report by ID, respecting superuser scope.
         """
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             rpt = await self.repo.get(report_id)
         else:
-            rpt = await self.repo.get_in_org(current_user.organization_id, report_id)
+            rpt = await self.repo.get_in_org(current_user["organization_id"], report_id)
         if not rpt:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Report not found"
@@ -90,17 +89,17 @@ class ReportService(BaseService[ReportRepository]):
 
     async def update_summary(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         report_id: UUID,
         data: ReportUpdate,
     ) -> ReportRead:
         """
         Update the summary text of a report.
         """
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             rpt = await self.repo.get(report_id)
         else:
-            rpt = await self.repo.get_in_org(current_user.organization_id, report_id)
+            rpt = await self.repo.get_in_org(current_user["organization_id"], report_id)
         if not rpt:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Report not found"

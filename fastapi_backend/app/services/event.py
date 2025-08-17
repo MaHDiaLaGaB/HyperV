@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.event import EventCreate, EventRead, EventUpdate
-from app.models.users.users import User
+from app.security.clerk import CurrentUser
 from app.repositories import EventRepository, AlertRepository
 from .base import BaseService
 
@@ -28,7 +28,7 @@ class EventService(BaseService[EventRepository]):
 
     async def ingest(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         data: EventCreate,
     ) -> EventRead:
         """
@@ -38,8 +38,8 @@ class EventService(BaseService[EventRepository]):
         # Determine target organization
         org_id = (
             data.organization_id
-            if current_user.is_superuser and data.organization_id is not None
-            else current_user.organization_id
+            if current_user["is_superadmin"] and data.organization_id is not None
+            else current_user["organization_id"]
         )
 
         # Create event
@@ -67,20 +67,20 @@ class EventService(BaseService[EventRepository]):
 
     async def list_events(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         limit: int | None = None,
         offset: int | None = None,
     ) -> List[EventRead]:
         """
         List events for organization or all if superuser.
         """
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             events = await self.repo.list_with_related(
                 limit=limit, offset=offset  # type: ignore
             )
         else:
             events = await self.repo.list_with_related(
-                current_user.organization_id,
+                current_user["organization_id"],
                 limit=limit,
                 offset=offset,
             )
@@ -88,7 +88,7 @@ class EventService(BaseService[EventRepository]):
 
     async def get_event(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         event_id: UUID,
     ) -> EventRead:
         """
@@ -96,8 +96,8 @@ class EventService(BaseService[EventRepository]):
         """
         event = (
             await self.repo.get(event_id)
-            if current_user.is_superuser
-            else await self.repo.get_in_org(current_user.organization_id, event_id)
+            if current_user["is_superadmin"]
+            else await self.repo.get_in_org(current_user["organization_id"], event_id)
         )
         if not event:
             raise HTTPException(
@@ -109,7 +109,7 @@ class EventService(BaseService[EventRepository]):
 
     async def update_event(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         event_id: UUID,
         data: EventUpdate,
     ) -> EventRead:
@@ -118,8 +118,8 @@ class EventService(BaseService[EventRepository]):
         """
         event = (
             await self.repo.get(event_id)
-            if current_user.is_superuser
-            else await self.repo.get_in_org(current_user.organization_id, event_id)
+            if current_user["is_superadmin"]
+            else await self.repo.get_in_org(current_user["organization_id"], event_id)
         )
         if not event:
             raise HTTPException(
@@ -133,7 +133,7 @@ class EventService(BaseService[EventRepository]):
 
     async def acknowledge(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         event_id: UUID,
     ) -> None:
         """
@@ -141,8 +141,8 @@ class EventService(BaseService[EventRepository]):
         """
         event = (
             await self.repo.get(event_id)
-            if current_user.is_superuser
-            else await self.repo.get_in_org(current_user.organization_id, event_id)
+            if current_user["is_superadmin"]
+            else await self.repo.get_in_org(current_user["organization_id"], event_id)
         )
         if not event:
             raise HTTPException(

@@ -7,6 +7,7 @@ DOCKER_COMPOSE=docker-compose
 DB_SERVICE := db      # your Postgres service name in docker-compose.yml
 DB_USER := postgres    # the DB super-user
 DB_NAME := hypervizion  # the name of your database
+SERVICE := backend
 
 
 # Help
@@ -71,8 +72,24 @@ docker-migrate-db: ## Run database migrations using Alembic
 docker-db-schema: ## Generate a new migration schema. Usage: make docker-db-schema migration_name="add users"
 	$(DOCKER_COMPOSE) run --rm backend alembic revision --autogenerate -m "$(migration_name)"
 
-docker-test-backend: ## Run tests for the backend
-	$(DOCKER_COMPOSE) run --rm backend pytest
+# docker-test-backend: ## Run tests for the backend
+# 	$(DOCKER_COMPOSE) run --rm backend pytest
+
+# Run tests in a throwaway container, bypassing the entrypoint
+docker-test-backend:
+	$(DOCKER_COMPOSE) run --rm --no-deps --entrypoint "" $(SERVICE) sh -lc "pytest -q"
+
+# With coverage (example)
+docker-test-backend-cov:
+	$(DOCKER_COMPOSE) run --rm --no-deps --entrypoint "" $(SERVICE) sh -lc "pytest --maxfail=1 --disable-warnings --cov=app --cov-report=term-missing -q"
+
+# Open a shell in a throwaway container (useful for ad-hoc commands)
+docker-backend-sh:
+	$(DOCKER_COMPOSE) run --rm --entrypoint "" $(SERVICE) sh
+
+# If you want to run tests *inside the already running* container instead:
+docker-test-backend-exec:
+	$(DOCKER_COMPOSE) exec $(SERVICE) sh -lc "pytest -q"
 
 docker-test-frontend: ## Run tests for the frontend
 	$(DOCKER_COMPOSE) run --rm frontend pnpm run test

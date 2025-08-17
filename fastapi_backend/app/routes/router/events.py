@@ -1,14 +1,14 @@
-from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, Path, status
+from typing import List
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query, Path, status
 
 from app.schemas.event import EventCreate, EventRead, EventUpdate
 from app.services.deps import get_event_service
 from app.services.event import EventService
-from app.security.auth import current_active_user
-from app.models.users.users import User
+from app.security.clerk import get_current_user, CurrentUser
 
-router = APIRouter(dependencies=[Depends(current_active_user)])
+router = APIRouter(prefix="/events", tags=["events"])
 
 
 @router.post(
@@ -20,24 +20,26 @@ router = APIRouter(dependencies=[Depends(current_active_user)])
 async def ingest_event(
     data: EventCreate,
     service: EventService = Depends(get_event_service),
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
 ) -> EventRead:
     """Create a new event and trigger its initial alert."""
-    return await service.ingest(current_user, data)
+    return await service.ingest(current, data)
 
 
 @router.get(
-    "/", response_model=List[EventRead], summary="List all events for organization"
+    "/",
+    response_model=List[EventRead],
+    summary="List all events for organization",
 )
 async def list_events(
     limit: int = Query(100, ge=1, le=1000, description="Max items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     service: EventService = Depends(get_event_service),
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
 ) -> List[EventRead]:
     """Retrieve events with related asset and pipeline info."""
     # Note: pagination not wired into repo.list_with_related by default
-    events = await service.list_events(current_user)
+    events = await service.list_events(current)
     return events[offset : offset + limit]
 
 
@@ -50,23 +52,25 @@ async def list_events(
 async def get_event(
     event_id: UUID = Path(..., description="ID of the event"),
     service: EventService = Depends(get_event_service),
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
 ) -> EventRead:
     """Fetch a single event."""
-    return await service.get_event(current_user, event_id)
+    return await service.get_event(current, event_id)
 
 
 @router.patch(
-    "/{event_id}", response_model=EventRead, summary="Update an event's details"
+    "/{event_id}",
+    response_model=EventRead,
+    summary="Update an event's details",
 )
 async def update_event(
     event_id: UUID,
     data: EventUpdate,
     service: EventService = Depends(get_event_service),
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
 ) -> EventRead:
     """Modify event severity or description."""
-    return await service.update_event(current_user, event_id, data)
+    return await service.update_event(current, event_id, data)
 
 
 @router.post(
@@ -75,9 +79,9 @@ async def update_event(
     summary="Acknowledge all alerts for an event",
 )
 async def acknowledge_event(
-    event_id: int,
+    event_id: UUID = Path(..., description="ID of the event"),
     service: EventService = Depends(get_event_service),
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
 ) -> None:
     """Mark all alerts related to this event as acknowledged."""
-    await service.acknowledge(current_user, event_id)
+    await service.acknowledge(current, event_id)

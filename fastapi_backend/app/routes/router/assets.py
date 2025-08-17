@@ -2,6 +2,7 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
 import json
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -18,10 +19,9 @@ from app.schemas.asset import AssetCreate, AssetRead
 from app.schemas.enums import AssetType
 from app.services.asset import AssetService
 from app.services.deps import get_asset_service
-from app.security.auth import current_active_user
-from app.models.users.users import User
+from app.security.clerk import get_current_user, CurrentUser
 
-router = APIRouter(dependencies=[Depends(current_active_user)])
+router = APIRouter()
 
 
 @router.post(
@@ -33,21 +33,22 @@ router = APIRouter(dependencies=[Depends(current_active_user)])
 async def upload_asset(
     asset_type: AssetType = Form(..., description="Asset type enum value"),
     organization_id: Optional[UUID] = Form(
-        None, description="Target organization id (superuser only)"
+        None, description="Target organization id (superadmin only)"
     ),
     captured_at: Optional[datetime] = Form(None, description="ISO8601 timestamp"),
     footprint_wkt: Optional[str] = Form(None, description="WKT POLYGON string"),
     metadata: Optional[str] = Form(None, description="JSON-encoded metadata"),
     file: UploadFile = File(..., description="Binary asset file"),
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
     service: AssetService = Depends(get_asset_service),
 ) -> AssetRead:
     """Upload a binary asset with metadata and WKT footprint."""
-    # Determine target org: superusers may override
-    if current_user.is_superuser and organization_id is not None:
-        target_org = organization_id
+    # Determine target org: superadmin may override; others use their active org
+    if current["is_superadmin"] and organization_id is not None:
+        target_org: Optional[UUID] = organization_id
     else:
-        target_org = current_user.organization_id
+        # CurrentUser.organization_id is a string UUID (or None); cast for the DTO if present
+        target_org = UUID(current["organization_id"]) if current.get("organization_id") else None
 
     try:
         meta_obj = json.loads(metadata) if metadata else None
@@ -65,7 +66,7 @@ async def upload_asset(
         footprint_wkt=footprint_wkt,
         metadata=meta_obj,
     )
-    return await service.upload(current_user, create_dto, file)
+    return await service.upload(current, create_dto, file)
 
 
 @router.get(
@@ -76,11 +77,11 @@ async def upload_asset(
 async def list_assets(
     limit: int = Query(100, ge=1, description="Max items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
     service: AssetService = Depends(get_asset_service),
 ) -> List[AssetRead]:
-    """Retrieve assets scoped to your organization or all if superuser."""
-    return await service.list_assets(current_user, limit=limit, offset=offset)
+    """Retrieve assets scoped to your organization, or all if superadmin."""
+    return await service.list_assets(current, limit=limit, offset=offset)
 
 
 @router.get(
@@ -90,9 +91,9 @@ async def list_assets(
     responses={404: {"description": "Asset not found"}},
 )
 async def get_asset(
-    asset_id: UUID = Path(..., ge=1),
-    current_user: User = Depends(current_active_user),
+    asset_id: UUID = Path(..., description="Asset ID"),
+    current: CurrentUser = Depends(get_current_user),
     service: AssetService = Depends(get_asset_service),
 ) -> AssetRead:
-    """Fetch a single asset by ID, respecting superuser scope."""
-    return await service.get_asset(current_user, asset_id)
+    """Fetch a single asset by ID, respecting org scope (superadmin can access any)."""
+    return await service.get_asset(current, asset_id)

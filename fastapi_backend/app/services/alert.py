@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.alert import AlertRead
-from app.models.users.users import User
+from app.security.clerk import CurrentUser
 from app.repositories import AlertRepository
 from .base import BaseService
 
@@ -19,7 +19,7 @@ class AlertService(BaseService[AlertRepository]):
 
     async def list_unack(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         limit: int | None = None,
         offset: int | None = None,
     ) -> List[AlertRead]:
@@ -28,7 +28,7 @@ class AlertService(BaseService[AlertRepository]):
         - Superusers see all unacknowledged alerts.
         - Organization users see only their org's unacknowledged alerts.
         """
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             # Global: list all where acknowledged_at is null
             alerts = await self.repo.list(
                 filters=[self.repo.model.acknowledged_at.is_(None)],
@@ -37,7 +37,7 @@ class AlertService(BaseService[AlertRepository]):
             )
         else:
             alerts = await self.repo.list_by_org(
-                current_user.organization_id,
+                current_user["organization_id"],
                 filters=[self.repo.model.acknowledged_at.is_(None)],
                 limit=limit,
                 offset=offset,
@@ -46,7 +46,7 @@ class AlertService(BaseService[AlertRepository]):
 
     async def acknowledge(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         alert_id: UUID,
     ) -> None:
         """
@@ -55,10 +55,10 @@ class AlertService(BaseService[AlertRepository]):
         - Organization users can only acknowledge alerts in their org.
         """
         # Fetch alert based on role
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             alert = await self.repo.get(alert_id)
         else:
-            alert = await self.repo.get_in_org(current_user.organization_id, alert_id)
+            alert = await self.repo.get_in_org(current_user["organization_id"], alert_id)
         if not alert:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

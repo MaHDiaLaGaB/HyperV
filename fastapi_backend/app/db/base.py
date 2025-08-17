@@ -3,9 +3,8 @@ import sqlalchemy as sa
 from sqlalchemy.orm.decl_api import DeclarativeBase
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import Integer, DateTime
+from sqlalchemy import DateTime
 import datetime as dt
-
 
 class Base(DeclarativeBase):
     """Declarative base class for all models."""
@@ -16,10 +15,7 @@ class Base(DeclarativeBase):
         index=True,
         nullable=False,
         default=uuid4,
-        server_default=sa.text("gen_random_uuid()"),  
-        # optional: have Postgres itself fill in a random UUID,
-        # requires the pgcrypto extension:
-        #   CREATE EXTENSION IF NOT EXISTS pgcrypto;
+        server_default=sa.text("gen_random_uuid()"),  # requires pgcrypto
     )
 
     created_at: Mapped[dt.datetime] = mapped_column(

@@ -1,12 +1,12 @@
 from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query, Path, status, HTTPException
+
+from fastapi import APIRouter, Depends, Query, Path, status
 
 from app.schemas.role import RoleCreate, RoleRead, RolePermissionsUpdate
 from app.services.deps import get_role_service
 from app.services.role import RoleService
-from app.security.auth import current_active_user
-from app.models.users.users import User
+from app.security.clerk import get_current_user, CurrentUser
 
 router = APIRouter()
 
@@ -19,15 +19,15 @@ router = APIRouter()
 )
 async def create_role(
     data: RoleCreate,
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
     service: RoleService = Depends(get_role_service),
 ) -> RoleRead:
     """
     Create a role within your organization.
-    Superusers may set `organization_id` in the payload to target any tenant;
-    regular users will have roles created in their own org.
+    Superadmins may set `organization_id` in the payload to target any tenant;
+    regular users create roles in their own org (enforced in service).
     """
-    return await service.create_role(current_user, data)
+    return await service.create_role(current, data)
 
 
 @router.get(
@@ -37,20 +37,18 @@ async def create_role(
 )
 async def list_roles(
     org_id: Optional[UUID] = Query(
-        None, description="Organization ID to list roles for (required for superusers)"
+        None, description="Organization ID to list roles for (required for superadmins)"
     ),
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
     service: RoleService = Depends(get_role_service),
 ) -> List[RoleRead]:
     """
     List roles for your organization.
-    Superusers must supply `?org_id=...` to list that tenant's roles.
+    Superadmins must supply `?org_id=...` to list that tenant's roles.
     """
-    return await service.list_roles(
-        current_user, org_id=org_id, limit=limit, offset=offset
-    )
+    return await service.list_roles(current, org_id=org_id, limit=limit, offset=offset)
 
 
 @router.get(
@@ -61,14 +59,14 @@ async def list_roles(
 )
 async def get_role(
     role_id: UUID = Path(..., description="UUID of the role"),
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
     service: RoleService = Depends(get_role_service),
 ) -> RoleRead:
     """
     Fetch a single role by its ID.
-    Superusers may fetch any role; org users only their own.
+    Superadmins may fetch any role; org users only their own (enforced in service).
     """
-    return await service.get_role(current_user, role_id)
+    return await service.get_role(current, role_id)
 
 
 @router.patch(
@@ -78,12 +76,12 @@ async def get_role(
 )
 async def assign_role_permissions(
     role_id: UUID = Path(..., description="UUID of the role"),
-    data: RolePermissionsUpdate = Depends(),
-    current_user: User = Depends(current_active_user),
+    data: RolePermissionsUpdate = ...,
+    current: CurrentUser = Depends(get_current_user),
     service: RoleService = Depends(get_role_service),
 ) -> RoleRead:
     """
     Replace the set of permissions on a role.
-    Superusers may update any role; org users only their own.
+    Superadmins may update any role; org users only their own (enforced in service).
     """
-    return await service.assign_permissions(current_user, role_id, data)
+    return await service.assign_permissions(current, role_id, data)

@@ -3,11 +3,10 @@ from pathlib import Path
 from typing import List
 from uuid import UUID
 from fastapi import UploadFile, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.asset import AssetCreate, AssetRead
 from app.repositories import AssetRepository
-from app.models.users.users import User
+from app.security.clerk import CurrentUser
 from .base import BaseService
 
 
@@ -19,7 +18,7 @@ class AssetService(BaseService[AssetRepository]):
 
     async def upload(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         data: AssetCreate,
         file: UploadFile,
     ) -> AssetRead:
@@ -29,10 +28,10 @@ class AssetService(BaseService[AssetRepository]):
         - Regular users only upload into their own organization.
         """
         # Determine target org
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             org_id = data.organization_id
         else:
-            org_id = current_user.organization_id
+            org_id = current_user["organization_id"]
             if data.organization_id != org_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -63,18 +62,18 @@ class AssetService(BaseService[AssetRepository]):
 
     async def list_assets(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         limit: int | None = None,
         offset: int | None = None,
     ) -> List[AssetRead]:
         """
         List assets. Superusers see all; others see org-scoped.
         """
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             rows = await self.repo.list(limit=limit, offset=offset)
         else:
             rows = await self.repo.list_by_org(
-                current_user.organization_id,
+                current_user["organization_id"],
                 limit=limit,
                 offset=offset,
             )
@@ -82,16 +81,16 @@ class AssetService(BaseService[AssetRepository]):
 
     async def get_asset(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         asset_id: UUID,
     ) -> AssetRead:
         """
         Get an asset by ID. Superusers can fetch any; others only their org.
         """
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             asset = await self.repo.get(asset_id)
         else:
-            asset = await self.repo.get_in_org(current_user.organization_id, asset_id)
+            asset = await self.repo.get_in_org(current_user["organization_id"], asset_id)
         if not asset:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

@@ -10,20 +10,16 @@ from app.models.users.organization import Organization
 
 class Role(Base):
     __tablename__ = "roles"
+
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     organization_id: Mapped[UUID] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
-    organization: Mapped["Organization"] = relationship(back_populates="roles")
+    organization = relationship("Organization", back_populates="roles")
     permissions: Mapped[List["Permission"]] = relationship(
-        secondary="role_permissions", back_populates="roles"
+        "Permission", secondary="role_permissions", back_populates="roles"
     )
     users = relationship("User", secondary="user_roles", back_populates="roles")
 
     __table_args__ = (UniqueConstraint("name", "organization_id", name="uq_role_org"),)
-
-
-Organization.roles = relationship(
-    "Role", back_populates="organization", cascade="all, delete-orphan"
-)

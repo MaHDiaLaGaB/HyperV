@@ -12,6 +12,7 @@ from app.schemas.organization import (
     OrganizationUpdate,
 )
 from .base import BaseService
+from app.security.clerk import CurrentUser
 
 
 class OrganizationService(BaseService[OrganizationRepository]):
@@ -22,13 +23,13 @@ class OrganizationService(BaseService[OrganizationRepository]):
 
     async def create_org(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         data: OrganizationCreate,
     ) -> OrganizationRead:
         """
         Create a new organization. Only superusers may create.
         """
-        if not current_user.is_superuser:
+        if not current_user["is_superadmin"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient privileges to create organization",
@@ -46,13 +47,13 @@ class OrganizationService(BaseService[OrganizationRepository]):
 
     async def get_org(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         org_id: UUID,
     ) -> OrganizationRead:
         """
         Fetch an organization by ID. Only superusers may fetch.
         """
-        if not current_user.is_superuser:
+        if not current_user["is_superadmin"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient privileges to view organization",
@@ -69,14 +70,14 @@ class OrganizationService(BaseService[OrganizationRepository]):
 
     async def update_org(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         org_id: UUID,
         data: OrganizationUpdate,
     ) -> OrganizationRead:
         """
         Update an organization's details. Only superusers may update.
         """
-        if not current_user.is_superuser:
+        if not current_user["is_superadmin"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient privileges to update organization",
@@ -103,13 +104,13 @@ class OrganizationService(BaseService[OrganizationRepository]):
 
     async def delete_org(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         org_id: UUID,
     ) -> None:
         """
         Delete an organization. Only superusers may delete.
         """
-        if not current_user.is_superuser:
+        if not current_user["is_superadmin"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient privileges to delete organization",
@@ -126,12 +127,12 @@ class OrganizationService(BaseService[OrganizationRepository]):
 
     async def list_orgs(
         self,
-        current_user: User,
+        current_user: CurrentUser,
     ) -> List[OrganizationRead]:
         """
         List all organizations. Only superusers may list.
         """
-        if not current_user.is_superuser:
+        if not current_user["is_superadmin"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient privileges to list organizations",

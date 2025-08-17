@@ -2,6 +2,8 @@
 
 from typing import List
 from uuid import UUID
+from pathlib import Path as FilePath
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -16,10 +18,9 @@ from fastapi.responses import FileResponse
 from app.schemas.report import ReportCreate, ReportRead, ReportUpdate
 from app.services.report import ReportService
 from app.services.deps import get_report_service
-from app.security.auth import current_active_user
-from app.models.users.users import User
+from app.security.clerk import get_current_user, CurrentUser
 
-router = APIRouter(dependencies=[Depends(current_active_user)])
+router = APIRouter()
 
 
 @router.post(
@@ -31,10 +32,10 @@ router = APIRouter(dependencies=[Depends(current_active_user)])
 async def generate_report(
     data: ReportCreate,
     background: BackgroundTasks,
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
     service: ReportService = Depends(get_report_service),
 ) -> ReportRead:
-    return await service.generate(current_user, data, background)
+    return await service.generate(current, data, background)
 
 
 @router.get(
@@ -45,10 +46,10 @@ async def generate_report(
 async def list_reports(
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
     service: ReportService = Depends(get_report_service),
 ) -> List[ReportRead]:
-    return await service.list_reports(current_user, limit=limit, offset=offset)
+    return await service.list_reports(current, limit=limit, offset=offset)
 
 
 @router.get(
@@ -58,11 +59,11 @@ async def list_reports(
     responses={404: {"description": "Report not found"}},
 )
 async def get_report(
-    report_id: UUID = Path(...),
-    current_user: User = Depends(current_active_user),
+    report_id: UUID = Path(..., description="Report ID"),
+    current: CurrentUser = Depends(get_current_user),
     service: ReportService = Depends(get_report_service),
 ) -> ReportRead:
-    return await service.get_report(current_user, report_id)
+    return await service.get_report(current, report_id)
 
 
 @router.get(
@@ -72,16 +73,16 @@ async def get_report(
     responses={404: {"description": "Report not found"}},
 )
 async def download_report(
-    report_id: UUID = Path(...),
-    current_user: User = Depends(current_active_user),
+    report_id: UUID = Path(..., description="Report ID"),
+    current: CurrentUser = Depends(get_current_user),
     service: ReportService = Depends(get_report_service),
 ) -> FileResponse:
-    rpt = await service.get_report(current_user, report_id)
+    rpt = await service.get_report(current, report_id)
     if not rpt.file_path:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="PDF not yet generated"
         )
-    return FileResponse(path=rpt.file_path, filename=Path(rpt.file_path).name)
+    return FileResponse(path=rpt.file_path, filename=FilePath(rpt.file_path).name)
 
 
 @router.patch(
@@ -92,7 +93,7 @@ async def download_report(
 async def update_report_summary(
     report_id: UUID,
     data: ReportUpdate,
-    current_user: User = Depends(current_active_user),
+    current: CurrentUser = Depends(get_current_user),
     service: ReportService = Depends(get_report_service),
 ) -> ReportRead:
-    return await service.update_summary(current_user, report_id, data)
+    return await service.update_summary(current, report_id, data)

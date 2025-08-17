@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Iterable
+from typing import Iterable, Set
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
-from app.models import Organization, Role
-from app.models import User  # adjust if your User model path differs
+from app.models import Organization, Role, User
 from app.repositories import (
     OrganizationRepository,
     RoleRepository,
@@ -32,7 +33,6 @@ async def seed_core(db: AsyncSession) -> None:
     user_repo = UserRepository(db)
 
     # 1) System org
-    system_org = None
     if await org_repo.exists(slug="__system__"):
         [system_org] = await org_repo.list(
             filters=[Organization.slug == "__system__"], limit=1
@@ -48,7 +48,6 @@ async def seed_core(db: AsyncSession) -> None:
     log.info("Using organization: %s (%s %s)", system_org.name, system_org.slug, system_org.id)
 
     # 2) "superadmin" role within System org
-    super_role = None
     if await role_repo.exists(organization_id=system_org.id, name="superadmin"):
         [super_role] = await role_repo.list(
             filters=[Role.organization_id == system_org.id, Role.name == "superadmin"],
@@ -61,41 +60,54 @@ async def seed_core(db: AsyncSession) -> None:
     log.info("Ensured role: %s (org=%s)", super_role.name, system_org.slug)
 
     # 3) Optional: upsert local user rows for Clerk superadmins
-    #    This is not strictly required (we auto-provision on first request),
-    #    but it's handy if you want the role pre-attached.
-    superadmins: Iterable[str] = settings.SUPERADMINS or set()
+    #    Make sure SUPERADMINS is an iterable of user ids (not a single string)
+    raw_superadmins = settings.SUPERADMINS or set()
+    if isinstance(raw_superadmins, str):
+        superadmins: Set[str] = {s.strip() for s in raw_superadmins.split(",") if s.strip()}
+    else:
+        superadmins: Iterable[str] = raw_superadmins
+
+    # We'll commit once at the end
     for clerk_user_id in superadmins:
-        # skip empties
-        clerk_user_id = clerk_user_id.strip()
-        if not clerk_user_id:
+        cid = clerk_user_id.strip()
+        if not cid:
             continue
 
-        # Upsert local user by clerk_user_id
-        if await user_repo.exists(clerk_user_id=clerk_user_id):
-            [u] = await user_repo.list(
-                filters=[User.clerk_user_id == clerk_user_id], limit=1
-            )
-            # ensure organization & role
-            u.organization_id = system_org.id
-            if super_role not in u.roles:
-                u.roles = list({*u.roles, super_role})
-            await db.commit()
-            log.info("Updated superadmin user (clerk_id=%s)", clerk_user_id)
+        # Fetch user with roles eagerly to avoid async lazy-load
+        u = await db.scalar(
+            select(User)
+            .options(selectinload(User.roles))
+            .where(User.clerk_user_id == cid)
+        )
+
+        if u:
+            # ensure organization
+            if u.organization_id != system_org.id:
+                u.organization_id = system_org.id
+
+            # ensure superadmin role (compare by id, not by instance)
+            if not any(r.id == super_role.id for r in u.roles):
+                u.roles.append(super_role)
+
+            log.info("Updated superadmin user (clerk_id=%s)", cid)
         else:
-            # Create a minimal local user row with required fields
+            # Create minimal local user row
             u = User(
-                clerk_user_id=clerk_user_id,
-                email=f"{clerk_user_id}@example.com",  # Default email based on clerk_user_id
-                full_name=f"User {clerk_user_id}",  # Default name based on clerk_user_id
+                clerk_user_id=cid,
+                email=f"{cid}@example.com",
+                full_name=f"User {cid}",
                 organization_id=system_org.id,
-                hashed_password="",  # Empty password for Clerk users
+                hashed_password="",
                 is_active=True,
-                is_superuser=True,  # Superadmin users
+                is_superuser=True,
                 is_verified=True,
             )
-            created = await user_repo.create(u, commit=False)
-            created.roles = [super_role]
-            await db.commit()
-            log.info("Created superadmin user (clerk_id=%s)", clerk_user_id)
+            # Add + flush to get PK, then attach role
+            db.add(u)
+            await db.flush()
+            u.roles = [super_role]
 
+            log.info("Created superadmin user (clerk_id=%s)", cid)
+
+    await db.commit()
     log.info("Seeding complete.")

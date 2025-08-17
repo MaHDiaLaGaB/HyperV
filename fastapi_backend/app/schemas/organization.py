@@ -18,6 +18,7 @@ class OrganizationCreate(OrganizationBase):
 
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = None
+    slug: Optional[str] = None
     client_type: Optional[ClientType] = None
     is_active: Optional[bool] = None
 

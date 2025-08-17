@@ -1,0 +1,27 @@
+# Direct dependencies extracted from pyproject.toml with version constraints
+fastapi[standard]>=0.115.0,<0.116
+asyncpg>=0.29.0,<0.30
+fastapi-users[sqlalchemy]>=13.0.0,<14
+pydantic-settings>=2.5.2,<3
+fastapi-mail>=1.4.1,<2
+watchdog>=5.0.3
+geoalchemy2>=0.17.1
+shapely>=2.1.1
+pydantic[mypy]>=2.10.4
+sqlalchemy2-stubs>=0.0.2a38
+python-jose>=3.5.0
+
+# Development dependencies
+pre-commit>=3.4.0,<4
+ruff>=0.1.0,<0.2
+watchdog>=5.0.3,<6
+python-dotenv>=1.0.1,<2
+pytest>=8.3.3,<9
+pytest-mock>=3.14.0,<4
+mypy>=1.13.0,<2
+coveralls>=4.0.1,<5
+alembic>=1.14.0,<2
+pytest-asyncio>=0.24.0,<0.25
+mkdocs-material>=9.6.9
+mkdocs-material[imaging]>=9.6.9
+black>=25.1.0

@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.users.users import User
+from app.security.clerk import CurrentUser
 from app.repositories import PermissionRepository
 from app.schemas.permission import PermissionCreate, PermissionRead
 from .base import BaseService
@@ -19,7 +19,7 @@ class PermissionService(BaseService[PermissionRepository]):
 
     async def create_permission(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         data: PermissionCreate,
     ) -> PermissionRead:
         """
@@ -28,9 +28,9 @@ class PermissionService(BaseService[PermissionRepository]):
         # Determine organization context
         org_id = (
             data.organization_id
-            if current_user.is_superuser
+            if current_user["is_superadmin"]
             and getattr(data, "organization_id", None) is not None
-            else current_user.organization_id
+            else current_user["organization_id"]
         )
         # Prevent duplicate codes
         exists = await self.repo.exists(
@@ -53,17 +53,17 @@ class PermissionService(BaseService[PermissionRepository]):
 
     async def get_permission(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         permission_id: UUID,
     ) -> PermissionRead:
         """
         Retrieve a permission by ID. Superusers may retrieve any; org users only theirs.
         """
-        if current_user.is_superuser:
+        if current_user["organization_id"]:
             perm = await self.repo.get(permission_id)
         else:
             perm = await self.repo.get_in_org(
-                current_user.organization_id, permission_id
+                current_user["organization_id"], permission_id
             )
         if not perm:
             raise HTTPException(
@@ -75,18 +75,18 @@ class PermissionService(BaseService[PermissionRepository]):
 
     async def list_permissions(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         limit: int | None = None,
         offset: int | None = None,
     ) -> List[PermissionRead]:
         """
         List permissions. Superusers see all; org users only theirs.
         """
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             perms = await self.repo.list(limit=limit, offset=offset)  # type: ignore
         else:
             perms = await self.repo.list_by_org(
-                current_user.organization_id,
+                current_user["organization_id"],
                 limit=limit,
                 offset=offset,
             )

@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.users.users import User
+from app.security.clerk import CurrentUser
 from app.repositories import RoleRepository, PermissionRepository
 from app.schemas.role import RoleCreate, RoleRead, RolePermissionsUpdate
 from .base import BaseService
@@ -27,7 +27,7 @@ class RoleService(BaseService[RoleRepository]):
 
     async def create_role(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         data: RoleCreate,
     ) -> RoleRead:
         """
@@ -38,8 +38,8 @@ class RoleService(BaseService[RoleRepository]):
         # Determine organization context
         org_id = (
             data.organization_id
-            if current_user.is_superuser
-            else current_user.organization_id
+            if current_user["is_superadmin"]
+            else current_user["organization_id"]
         )
         # Validate permissions
         perms = await self.perm_repo.list(
@@ -61,17 +61,17 @@ class RoleService(BaseService[RoleRepository]):
 
     async def get_role(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         role_id: UUID,
     ) -> RoleRead:
         """
         Fetch a role by ID. Superusers may fetch any;
         org users only theirs.
         """
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             role = await self.repo.get(role_id)
         else:
-            role = await self.repo.get_in_org(current_user.organization_id, role_id)
+            role = await self.repo.get_in_org(current_user["organization_id"], role_id)
         if not role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -82,7 +82,7 @@ class RoleService(BaseService[RoleRepository]):
 
     async def list_roles(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         org_id: Optional[int] = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -91,7 +91,7 @@ class RoleService(BaseService[RoleRepository]):
         List roles. Superusers may specify org_id to list for any tenant;
         org users list within their own org.
         """
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             if org_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -99,12 +99,12 @@ class RoleService(BaseService[RoleRepository]):
                 )
             roles = await self.repo.list_with_permissions(org_id)
         else:
-            roles = await self.repo.list_with_permissions(current_user.organization_id)
+            roles = await self.repo.list_with_permissions(current_user["organization_id"])
         return [RoleRead.model_validate(r) for r in roles]
 
     async def assign_permissions(
         self,
-        current_user: User,
+        current_user: CurrentUser,
         role_id: UUID,
         data: RolePermissionsUpdate,
     ) -> RoleRead:
@@ -112,10 +112,10 @@ class RoleService(BaseService[RoleRepository]):
         Replace a role's permissions. Superusers may modify any;
         org users only their own roles.
         """
-        if current_user.is_superuser:
+        if current_user["is_superadmin"]:
             role = await self.repo.get(role_id)
         else:
-            role = await self.repo.get_in_org(current_user.organization_id, role_id)
+            role = await self.repo.get_in_org(current_user["organization_id"], role_id)
         if not role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

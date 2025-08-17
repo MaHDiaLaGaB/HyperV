@@ -24,18 +24,14 @@ class Settings(BaseSettings):
     SUPERUSER_PASSWORD: str
     SUPERUSER_FULL_NAME: str = "Super Admin"
 
-    # Email
-    MAIL_USERNAME: str | None = None
-    MAIL_PASSWORD: str | None = None
-    MAIL_FROM: str | None = None
-    MAIL_SERVER: str | None = None
-    MAIL_PORT: int | None = None
-    MAIL_FROM_NAME: str = "FastAPI template"
-    MAIL_STARTTLS: bool = True
-    MAIL_SSL_TLS: bool = False
-    USE_CREDENTIALS: bool = True
-    VALIDATE_CERTS: bool = True
-    TEMPLATE_DIR: str = "email_templates"
+    SUPERADMINS: set[str] = set()
+
+    # Clerk
+    CLERK_ISSUER: str
+    CLERK_EXPECTED_AUD: str
+    CLERK_PERMITTED_AZP: str
+    CLERK_SECRET_KEY: str
+    CLERK_JWKS_URL: str
 
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"

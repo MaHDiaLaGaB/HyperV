@@ -9,6 +9,7 @@ from app.routes.router import (
     events,
     reports,
     pipelines,
+    alerts,
 )
 
 api_router = APIRouter()
@@ -28,3 +29,4 @@ api_router.include_router(assets.router, prefix="/assets", tags=["Assets"])
 api_router.include_router(reports.router, prefix="/reports", tags=["Reports"])
 api_router.include_router(events.router, prefix="/events", tags=["Events"])
 api_router.include_router(pipelines.router, prefix="/pipelines", tags=["Pipelines"])
+api_router.include_router(alerts.router, prefix="/alerts", tags=["Alerts"])

@@ -25,6 +25,24 @@ class Settings(BaseSettings):
     SUPERUSER_FULL_NAME: str = "Super Admin"
 
     SUPERADMINS: set[str] = set()
+    
+    @field_validator("SUPERADMINS", mode="before")
+    @classmethod
+    def parse_superadmins(cls, v):
+        # Accept set/list already parsed
+        if isinstance(v, (set, list, tuple)):
+            return set(v)
+        if isinstance(v, str):
+            s = v.strip()
+            # Try JSON array first
+            if s.startswith("["):
+                try:
+                    return set(json.loads(s))
+                except Exception:
+                    pass
+            # Fallback: CSV
+            return {p.strip() for p in s.split(",") if p.strip()}
+        return set()
 
     # Clerk
     CLERK_ISSUER: str
@@ -32,6 +50,12 @@ class Settings(BaseSettings):
     CLERK_PERMITTED_AZP: str
     CLERK_SECRET_KEY: str
     CLERK_JWKS_URL: str
+    AUTO_PROVISION_USERS: bool = True
+
+    @property
+    def CLERK_PERMITTED_AZP_SET(self) -> set[str]:
+        return {s.strip() for s in self.CLERK_PERMITTED_AZP.split(",") if s.strip()}
+
 
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"

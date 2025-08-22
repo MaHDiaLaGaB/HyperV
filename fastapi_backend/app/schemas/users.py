@@ -6,15 +6,11 @@ from uuid import UUID
 from .base import IDMixin, TimestampMixin
 
 class CurrentUser(TypedDict):
-    id: str                 # your local UUID (as str)
-    clerk_user_id: str
-    email: Optional[str]
-    full_name: Optional[str]
+    id: str
+    email: str
+    full_name: str
+    roles: List[str]
     organization_id: Optional[str]
-    org_role: Optional[str]
-    org_slug: Optional[str]
-    is_superadmin: bool
-    permissions: List[str]
 
 class UserProvision(BaseModel):
     clerk_user_id: str

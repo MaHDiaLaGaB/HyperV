@@ -77,7 +77,7 @@ docker-db-schema: ## Generate a new migration schema. Usage: make docker-db-sche
 
 # Run tests in a throwaway container, bypassing the entrypoint
 docker-test-backend:
-	$(DOCKER_COMPOSE) run --rm --no-deps --entrypoint "" $(SERVICE) sh -lc "pytest -q"
+	$(DOCKER_COMPOSE) run --rm --no-deps --entrypoint "" $(SERVICE) sh -lc "pytest -q -v"
 
 # With coverage (example)
 docker-test-backend-cov:

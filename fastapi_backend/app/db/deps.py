@@ -11,11 +11,3 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 # Backwards-compat alias (your old name)
 get_async_session = get_db
-
-# User database dependency
-async def get_user_db(session: AsyncSession = None) -> AsyncGenerator[SQLAlchemyUserDatabase, None]:
-    if session is None:
-        async with async_session_maker() as session:
-            yield SQLAlchemyUserDatabase(session, User)
-    else:
-        yield SQLAlchemyUserDatabase(session, User)
